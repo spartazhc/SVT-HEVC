@@ -1929,6 +1929,7 @@ void* ModeDecisionConfigurationKernel(void *inputPtr)
 		rateControlResultsPtr = (RateControlResults_t*)rateControlResultsWrapperPtr->objectPtr;
 		pictureControlSetPtr = (PictureControlSet_t*)rateControlResultsPtr->pictureControlSetWrapperPtr->objectPtr;
 		sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
+        eb_add_time_entry(EB_MD_CONFIG, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 #if DEADLOCK_DEBUG
         if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
             SVT_LOG("POC %lu MDC IN \n", pictureControlSetPtr->pictureNumber);
@@ -2094,6 +2095,7 @@ void* ModeDecisionConfigurationKernel(void *inputPtr)
                 encDecTasksPtr->inputType = ENCDEC_TASKS_MDC_INPUT;
                 encDecTasksPtr->tileGroupIndex = tileGroupIdx;
 
+                eb_add_time_entry(EB_MD_CONFIG, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, tileGroupIdx);
                 // Post the Full Results Object
                 EbPostFullObject(encDecTasksWrapperPtr);
             }

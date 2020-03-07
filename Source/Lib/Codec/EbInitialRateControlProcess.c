@@ -877,6 +877,7 @@ void* InitialRateControlKernel(void *inputPtr)
 
 		inputResultsPtr = (MotionEstimationResults_t*)inputResultsWrapperPtr->objectPtr;
 		pictureControlSetPtr = (PictureParentControlSet_t*)inputResultsPtr->pictureControlSetWrapperPtr->objectPtr;
+		eb_add_time_entry(EB_INIT_RC, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, inputResultsPtr->segmentIndex);
         pictureControlSetPtr->meSegmentsCompletionMask++;
         if (pictureControlSetPtr->meSegmentsCompletionMask == pictureControlSetPtr->meSegmentsTotalCount) {
 #if DEADLOCK_DEBUG
@@ -1081,6 +1082,7 @@ void* InitialRateControlKernel(void *inputPtr)
 					outputResultsPtr = (InitialRateControlResults_t*)outputResultsWrapperPtr->objectPtr;
 					outputResultsPtr->pictureControlSetWrapperPtr = queueEntryPtr->parentPcsWrapperPtr;
 					/////////////////////////////
+					eb_add_time_entry(EB_INIT_RC, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 					// Post the Full Results Object
 					EbPostFullObject(outputResultsWrapperPtr);
 #if DEADLOCK_DEBUG

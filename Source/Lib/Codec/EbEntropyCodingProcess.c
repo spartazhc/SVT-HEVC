@@ -94,7 +94,7 @@ static void ResetEntropyCodingPicture(
                 pictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCoderPtr,
                 entropyCodingQp,
                 pictureControlSetPtr->sliceType);
-	
+
         EntropyCodingResetNeighborArrays(pictureControlSetPtr, tileIdx);
     }
 
@@ -144,8 +144,8 @@ static void EntropyCodingLcu(
     EB_U32                       writtenBitsBeforeQuantizedCoeff;
     EB_U32                       writtenBitsAfterQuantizedCoeff;
     EntropyCoder_t               *entropyCoderPtr = pictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCoderPtr;
-    //store the number of written bits before coding quantized coeffs (flush is not called yet): 
-    // The total number of bits is 
+    //store the number of written bits before coding quantized coeffs (flush is not called yet):
+    // The total number of bits is
     // number of written bits
     // + 32  - bits remaining in interval Low Value
     // + number of buffered byte * 8
@@ -183,9 +183,9 @@ static void EntropyCodingLcu(
 
     //Jing:TODO
     // extend the totalBits to tile, for tile based brc
-    
-    //store the number of written bits after coding quantized coeffs (flush is not called yet): 
-    // The total number of bits is 
+
+    //store the number of written bits after coding quantized coeffs (flush is not called yet):
+    // The total number of bits is
     // number of written bits
     // + 32  - bits remaining in interval Low Value
     // + number of buffered byte * 8
@@ -215,12 +215,12 @@ static void EntropyCodingLcu(
 }
 
 /******************************************************
- * Update Entropy Coding Rows 
+ * Update Entropy Coding Rows
  *
  * This function is responsible for synchronizing the
- *   processing of Entropy Coding LCU-rows and starts 
- *   processing of LCU-rows as soon as their inputs are 
- *   available and the previous LCU-row has completed.  
+ *   processing of Entropy Coding LCU-rows and starts
+ *   processing of LCU-rows as soon as their inputs are
+ *   available and the previous LCU-row has completed.
  *   At any given time, only one segment row per picture
  *   is being processed.
  *
@@ -272,7 +272,7 @@ static EB_BOOL UpdateEntropyCodingRows(
         for(i=*rowIndex; i < *rowIndex + rowCount; ++i) {
             infoPtr->entropyCodingRowArray[i] = EB_TRUE;
         }
-        
+
         while(infoPtr->entropyCodingRowArray[infoPtr->entropyCodingCurrentAvailableRow] == EB_TRUE &&
               infoPtr->entropyCodingCurrentAvailableRow < infoPtr->entropyCodingRowCount)
         {
@@ -286,7 +286,7 @@ static EB_BOOL UpdateEntropyCodingRows(
     }
 
     // Test if the picture is not already complete AND not currently being worked on by another ENCDEC process
-    if(infoPtr->entropyCodingCurrentRow < infoPtr->entropyCodingRowCount && 
+    if(infoPtr->entropyCodingCurrentRow < infoPtr->entropyCodingRowCount &&
        infoPtr->entropyCodingRowArray[infoPtr->entropyCodingCurrentRow] == EB_TRUE &&
        infoPtr->entropyCodingInProgress == EB_FALSE)
     {
@@ -359,6 +359,7 @@ void* EntropyCodingKernel(void *inputPtr)
         pictureControlSetPtr   = (PictureControlSet_t*) encDecResultsPtr->pictureControlSetWrapperPtr->objectPtr;
         sequenceControlSetPtr  = (SequenceControlSet_t*) pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
         tileIdx                = encDecResultsPtr->tileIndex;
+        eb_add_time_entry(EB_ENTROPY, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, tileIdx);
         tileRowIdx             = tileIdx / pictureControlSetPtr->ParentPcsPtr->tileColumnCount;
         tileColIdx             = tileIdx % pictureControlSetPtr->ParentPcsPtr->tileColumnCount;
         lastLcuFlagInSlice     = EB_FALSE;
@@ -387,10 +388,10 @@ void* EntropyCodingKernel(void *inputPtr)
 
         {
             initialProcessCall = EB_TRUE;
-            yLcuIndex = encDecResultsPtr->completedLcuRowIndexStart;   
-            
+            yLcuIndex = encDecResultsPtr->completedLcuRowIndexStart;
+
             // LCU-loops
-            while(UpdateEntropyCodingRows(pictureControlSetPtr, &yLcuIndex, encDecResultsPtr->completedLcuRowCount, tileIdx, &initialProcessCall) == EB_TRUE) 
+            while(UpdateEntropyCodingRows(pictureControlSetPtr, &yLcuIndex, encDecResultsPtr->completedLcuRowCount, tileIdx, &initialProcessCall) == EB_TRUE)
             {
                 EB_U32 rowTotalBits = 0;
 
@@ -402,7 +403,7 @@ void* EntropyCodingKernel(void *inputPtr)
                         //        pictureControlSetPtr->pictureNumber, tileIdx, yLcuIndex + yLcuStart);
                         pictureControlSetPtr->entropyCodingPicResetFlag = EB_FALSE;
                         ResetEntropyCodingPicture(
-                                contextPtr, 
+                                contextPtr,
                                 pictureControlSetPtr,
                                 sequenceControlSetPtr);
                     }
@@ -423,13 +424,13 @@ void* EntropyCodingKernel(void *inputPtr)
                     if (sequenceControlSetPtr->staticConfig.tileSliceMode) {
                         lastLcuFlagInSlice = lastLcuFlagInTile;
                     }
-            
+
                     // Configure the LCU
                     EntropyCodingConfigureLcu(
                         contextPtr,
                         lcuPtr,
                         pictureControlSetPtr);
-            
+
                     // Entropy Coding
                     EntropyCodingLcu(
                         lcuPtr,
@@ -465,7 +466,8 @@ void* EntropyCodingKernel(void *inputPtr)
 
                     rateControlTaskPtr->pictureControlSetWrapperPtr = 0;
                     rateControlTaskPtr->segmentIndex = ~0u;
-                    
+
+                    eb_add_time_entry(EB_ENTROPY, EB_FINISH, (EbTaskType)RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, yLcuIndex);
                     // Post EncDec Results
                     EbPostFullObject(rateControlTaskWrapperPtr);
                 }
@@ -511,6 +513,7 @@ void* EntropyCodingKernel(void *inputPtr)
                             entropyCodingResultsPtr = (EntropyCodingResults_t*)entropyCodingResultsWrapperPtr->objectPtr;
                             entropyCodingResultsPtr->pictureControlSetWrapperPtr = encDecResultsPtr->pictureControlSetWrapperPtr;
 
+                            eb_add_time_entry(EB_ENTROPY, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
                             //SVT_LOG("[%lld]: Entropy post result, POC %d\n", EbGetSysTimeMs(), pictureControlSetPtr->pictureNumber);
                             // Post EntropyCoding Results
                             EbPostFullObject(entropyCodingResultsWrapperPtr);
@@ -529,6 +532,6 @@ void* EntropyCodingKernel(void *inputPtr)
         EbReleaseObject(encDecResultsWrapperPtr);
 
     }
-    
+
     return EB_NULL;
 }

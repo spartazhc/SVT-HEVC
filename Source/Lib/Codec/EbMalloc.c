@@ -8,6 +8,7 @@
 
 #include "EbMalloc.h"
 #include "EbThreads.h"
+#include "EbUtility.h"
 
 #ifdef DEBUG_MEMORY_USAGE
 
@@ -388,6 +389,192 @@ void EbDecreaseComponentCount()
             printf("SVT: you have no memory leak\r\n");
         }
     }
+    EbReleaseMutex(m);
+#endif
+}
+
+#ifdef DEBUG_TIMESTAMP
+
+static EB_HANDLE g_time_mutex;
+
+#ifdef _WIN32
+
+#include <windows.h>
+
+static INIT_ONCE g_time_once = INIT_ONCE_STATIC_INIT;
+
+BOOL CALLBACK create_time_mutex (
+    PINIT_ONCE InitOnce,
+    PVOID Parameter,
+    PVOID *lpContext)
+{
+    (void)InitOnce;
+    (void)Parameter;
+    (void)lpContext;
+    g_time_mutex = EbCreateMutex();
+    return TRUE;
+}
+
+static EB_HANDLE get_time_mutex()
+{
+    InitOnceExecuteOnce(&g_time_once, create_time_mutex, NULL, NULL);
+    return g_time_mutex;
+}
+#else
+#include <pthread.h>
+static void create_time_mutex()
+{
+    g_time_mutex = EbCreateMutex();
+}
+
+static pthread_once_t g_time_once = 0;
+
+static EB_HANDLE get_time_mutex()
+{
+    pthread_once(&g_time_once, create_time_mutex);
+    return g_time_mutex;
+}
+#endif // _WIN32
+
+EB_U32 hash_ti(EB_U64 p)
+{
+#define MASK32 ((((EB_U64)1)<<32)-1)
+
+     EB_U64 low32 = p & MASK32;
+    return (EB_U32)((p >> 32) + low32);
+}
+
+typedef struct TimeEntry{
+    EB_U64 pic_num;
+    EB_S32 seg_idx;
+    EbTimeType time_type;
+    EbTaskType task_type;
+    EbProcessType Ptype;
+    EB_U64 sTime;
+    EB_U64 uTime;
+} TimeEntry;
+
+ //+1 to get a better hash result
+#define TIME_ENTRY_SIZE (4 * 1024 * 1024 + 1)
+
+TimeEntry g_time_entry[TIME_ENTRY_SIZE];
+
+#define TO_INDEX_TI(v) ((v) % TIME_ENTRY_SIZE)
+static EB_BOOL g_add_time_entry_warning = EB_TRUE;
+
+typedef EB_BOOL (*Predicate2)(TimeEntry* e, void* param);
+
+static EB_BOOL for_each_hash_entry_ti(TimeEntry* bucket, EB_U32 start, Predicate2 pred, void* param)
+{
+
+    EB_U32 s = TO_INDEX_TI(start);
+    EB_U32 i = s;
+
+    do {
+        TimeEntry* e = bucket + i;
+        if (pred(e, param)) {
+            return EB_TRUE;
+        }
+        i++;
+        i = TO_INDEX_TI(i);
+    } while (i != s);
+    return EB_FALSE;
+}
+
+static EB_BOOL for_each_time_entry(EB_U32 start, Predicate2 pred, void* param)
+{
+    EB_BOOL ret;
+    EB_HANDLE m = get_time_mutex();
+    EbBlockOnMutex(m);
+    ret = for_each_hash_entry_ti(g_time_entry, start, pred, param);
+    EbReleaseMutex(m);
+    return ret;
+}
+
+static EB_BOOL add_time_entry(TimeEntry* e, void* param)
+{
+    TimeEntry* new_item = (TimeEntry*)param;
+    if (!e->uTime) {
+        EB_MEMCPY(e, new_item, sizeof(TimeEntry));
+        return EB_TRUE;
+    }
+    return EB_FALSE;
+}
+
+static int compare_time(const void* a,const void* b)
+{
+    const TimeEntry* pa = (const TimeEntry*)a;
+    const TimeEntry* pb = (const TimeEntry*)b;
+    if (pa->sTime == 0 && pb->sTime != 0) return 1;
+    if (pa->sTime != 0 && pb->sTime == 0) return -1;
+    if (pa->sTime < pb->sTime) return -1;
+    else if (pa->sTime == pb->sTime) {
+        if (pa->uTime < pb->uTime) return -1;
+        else if (pa->uTime > pb->uTime) return 1;
+        else return 0;
+    }
+    return 1;
+}
+
+static const char *process_namelist[EB_PROCESS_TYPE_TOTAL] = {
+    "resource_coord", "pic_analysis", "pic_decision",
+    "motion_estimation", "initial_rc", "source_based_op",
+    "pic_manager", "rate_control", "mode_decision",
+    "enc_dec", "entropy_coding", "packetization"
+};
+static const char* process_name(EbProcessType type)
+{
+    return process_namelist[type];
+}
+
+#endif // DEBUG_TIMESTAMP
+void eb_add_time_entry(EbProcessType Ptype, EbTimeType TimeType, EbTaskType TaskType, EB_U64 pic_num, EB_S32 seg_idx)
+{
+#ifdef DEBUG_TIMESTAMP
+    TimeEntry item;
+    item.pic_num = pic_num;
+    item.seg_idx = seg_idx;
+    item.time_type = TimeType;
+    item.task_type = TaskType;
+    item.Ptype = Ptype;
+    EbHevcStartTime(&item.sTime, &item.uTime);
+    if (for_each_time_entry(hash_ti(item.uTime), add_time_entry, &item))
+        return;
+    if (g_add_time_entry_warning) {
+        fprintf(stderr, "SVT: can't add time entry.\r\n");
+        fprintf(stderr, "SVT: You need to increase TIME_ENTRY_SIZE\r\n");
+        g_add_time_entry_warning = EB_FALSE;
+    }
+#endif
+}
+
+void eb_print_time_usage() {
+#ifdef DEBUG_TIMESTAMP
+    EB_HANDLE m = get_time_mutex();
+    EbBlockOnMutex(m);
+    FILE *fp = NULL, *fp_raw = NULL;
+    fp = fopen("/tmp/profile_hevc.csv", "w+");
+    fp_raw = fopen("/tmp/profile_hevc_raw.csv", "w+");
+    qsort(g_time_entry, TIME_ENTRY_SIZE, sizeof(TimeEntry), compare_time);
+    int i = 0;
+    double mtime;
+    while (g_time_entry[i].uTime) {
+        EbHevcComputeOverallElapsedTimeRealMs(
+            g_time_entry[0].sTime,
+            g_time_entry[0].uTime,
+            g_time_entry[i].sTime,
+            g_time_entry[i].uTime,
+            &mtime);
+        fprintf(fp, "%s, Timetype=%d, TaskType=%d, pic_num=%zu, seg_idx=%d, TimeUseinMS=%.4f\n",
+            process_name(g_time_entry[i].Ptype), (int)g_time_entry[i].time_type, (int)g_time_entry[i].task_type,
+             g_time_entry[i].pic_num, g_time_entry[i].seg_idx, mtime);
+        fprintf(fp_raw, "%d, %d, %d, %zu, %d, %.4f\n",
+            (int)g_time_entry[i].Ptype, (int)g_time_entry[i].time_type, (int)g_time_entry[i].task_type,
+             g_time_entry[i].pic_num, g_time_entry[i].seg_idx, mtime);
+        ++i;
+    }
+    fclose(fp);
+    fclose(fp_raw);
     EbReleaseMutex(m);
 #endif
 }

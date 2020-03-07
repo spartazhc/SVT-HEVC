@@ -203,6 +203,7 @@ void EbHevcStartTime(EB_U64 *Startseconds, EB_U64 *Startuseconds);
 void EbHevcFinishTime(EB_U64 *Finishseconds, EB_U64 *Finishuseconds);
 void EbHevcComputeOverallElapsedTime(EB_U64 Startseconds, EB_U64 Startuseconds, EB_U64 Finishseconds, EB_U64 Finishuseconds, double *duration);
 void EbHevcComputeOverallElapsedTimeMs(EB_U64 Startseconds, EB_U64 Startuseconds, EB_U64 Finishseconds, EB_U64 Finishuseconds, double *duration);
+void EbHevcComputeOverallElapsedTimeRealMs(EB_U64 Startseconds, EB_U64 Startuseconds, EB_U64 Finishseconds, EB_U64 Finishuseconds, double *duration);
 #ifdef __cplusplus
 }
 #endif

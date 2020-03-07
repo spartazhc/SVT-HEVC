@@ -1664,6 +1664,7 @@ static EB_BOOL AssignEncDecSegments(
             feedbackTaskPtr->pictureControlSetWrapperPtr = taskPtr->pictureControlSetWrapperPtr;
             feedbackTaskPtr->tileGroupIndex = taskPtr->tileGroupIndex;
 
+            eb_add_time_entry(EB_ENCDEC, EB_INSIDE, (EbTaskType)ENCDEC_TASKS_ENCDEC_INPUT, ((PictureControlSet_t*)taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber, feedbackRowIndex);
             EbPostFullObject(wrapperPtr);
         }
 
@@ -2691,6 +2692,7 @@ void* EncDecKernel(void *inputPtr)
 
         encDecTasksPtr = (EncDecTasks_t*)encDecTasksWrapperPtr->objectPtr;
         pictureControlSetPtr = (PictureControlSet_t*)encDecTasksPtr->pictureControlSetWrapperPtr->objectPtr;
+        eb_add_time_entry(EB_ENCDEC, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, encDecTasksPtr->tileGroupIndex);
         ppcsPtr = pictureControlSetPtr->ParentPcsPtr;
         sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
         enableSaoFlag = (sequenceControlSetPtr->staticConfig.enableSaoFlag) ? EB_TRUE : EB_FALSE;
@@ -2850,7 +2852,7 @@ void* EncDecKernel(void *inputPtr)
                     lcuOriginX = (xLcuIndex+tileGroupLcuStartX) << lcuSizeLog2;
                     lcuOriginY = (yLcuIndex+tileGroupLcuStartY) << lcuSizeLog2;
                     //printf("Process lcu (%d, %d), lcuIndex %d, segmentIndex %d\n", lcuOriginX, lcuOriginY, lcuIndex, segmentIndex);
-                    
+
                     if (sequenceControlSetPtr->staticConfig.segmentOvEnabled && pictureControlSetPtr->ParentPcsPtr->segmentOvArray != NULL) {
                         SegmentOverride_t* segmentOvPtr = pictureControlSetPtr->ParentPcsPtr->segmentOvArray;
                         if ((segmentOvPtr[lcuIndex].ovFlags & EB_DENSITY_QP_OV) && (segmentOvPtr[lcuIndex].ovFlags & EB_QP_OV_DIRECT)) {
@@ -3048,6 +3050,7 @@ void* EncDecKernel(void *inputPtr)
                 encDecResultsPtr->completedLcuRowCount = lcuRowIndexCount;
                 encDecResultsPtr->tileIndex = lcuRowTileIdx;
 
+                eb_add_time_entry(EB_ENCDEC, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, lcuRowTileIdx);
                 //printf("Post tile %d, line [%d, %d) to entropy\n", lcuRowTileIdx, lcuRowIndexStart, lcuRowIndexStart + lcuRowIndexCount);
                 // Post EncDec Results
                 EbPostFullObject(encDecResultsWrapperPtr);
@@ -3192,6 +3195,7 @@ void* EncDecKernel(void *inputPtr)
                 pictureDemuxResultsPtr->pictureNumber = pictureControlSetPtr->pictureNumber;
                 pictureDemuxResultsPtr->pictureType = EB_PIC_REFERENCE;
 
+                eb_add_time_entry(EB_ENCDEC, EB_FINISH, (enum EbTaskType)EB_PIC_REFERENCE, pictureControlSetPtr->pictureNumber, pictureDemuxResultsPtr->pictureNumber);
                 // Post Reference Picture
                 EbPostFullObject(pictureDemuxResultsWrapperPtr);
 #if LATENCY_PROFILE

@@ -4238,6 +4238,7 @@ void* PictureAnalysisKernel(void *inputPtr)
 
 		inputResultsPtr = (ResourceCoordinationResults_t*)inputResultsWrapperPtr->objectPtr;
 		pictureControlSetPtr = (PictureParentControlSet_t*)inputResultsPtr->pictureControlSetWrapperPtr->objectPtr;
+		eb_add_time_entry(EB_PIC_ANALYSIS, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 		sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
 		inputPicturePtr = pictureControlSetPtr->enhancedPicturePtr;
 #if DEADLOCK_DEBUG
@@ -4362,6 +4363,7 @@ void* PictureAnalysisKernel(void *inputPtr)
                 pictureControlSetPtr->decodeOrder,
                 latency);
 #endif
+		eb_add_time_entry(EB_PIC_ANALYSIS, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 		// Post the Full Results Object
 		EbPostFullObject(outputResultsWrapperPtr);
 
