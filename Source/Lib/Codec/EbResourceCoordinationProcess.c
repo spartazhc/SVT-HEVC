@@ -356,7 +356,7 @@ void* ResourceCoordinationKernel(void *inputPtr)
     EB_U32                          chromaFormat = EB_YUV420;
     EB_U32                          subWidthCMinus1 = 1;
     EB_U32                          subHeightCMinus1 = 1;
-    
+
     for(;;) {
 
         // Tie instanceIndex to zero for now...
@@ -636,6 +636,7 @@ void* ResourceCoordinationKernel(void *inputPtr)
             } else
                 outputResultsPtr->pictureControlSetWrapperPtr = prevPictureControlSetWrapperPtr;
 
+            eb_add_time_entry(EB_RESOURCE, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber - 1, -1);
             // Post the finished Results Object
             EbPostFullObject(outputWrapperPtr);
         }

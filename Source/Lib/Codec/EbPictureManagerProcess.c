@@ -209,7 +209,7 @@ void* PictureManagerKernel(void *inputPtr)
             pictureControlSetPtr            = (PictureParentControlSet_t*)  inputPictureDemuxPtr->pictureControlSetWrapperPtr->objectPtr;
             sequenceControlSetPtr           = (SequenceControlSet_t*) pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
             encodeContextPtr                = sequenceControlSetPtr->encodeContextPtr;
-
+            eb_add_time_entry(EB_PIC_MANAGER, EB_START, (EbTaskType)inputPictureDemuxPtr->pictureType, pictureControlSetPtr->pictureNumber, -1);
 #if DEADLOCK_DEBUG
             SVT_LOG("POC %lld PM IN \n", pictureControlSetPtr->pictureNumber);
 #endif
@@ -522,7 +522,7 @@ void* PictureManagerKernel(void *inputPtr)
 
             sequenceControlSetPtr   = (SequenceControlSet_t*) inputPictureDemuxPtr->sequenceControlSetWrapperPtr->objectPtr;
             encodeContextPtr        = sequenceControlSetPtr->encodeContextPtr;
-
+            eb_add_time_entry(EB_PIC_MANAGER, EB_START, (EbTaskType)inputPictureDemuxPtr->pictureType, inputPictureDemuxPtr->pictureNumber, -1);
             // Check if Reference Queue is full
             CHECK_REPORT_ERROR(
                 (encodeContextPtr->referencePictureQueueHeadIndex != encodeContextPtr->referencePictureQueueTailIndex),
@@ -565,7 +565,7 @@ void* PictureManagerKernel(void *inputPtr)
 
             sequenceControlSetPtr = (SequenceControlSet_t*)inputPictureDemuxPtr->sequenceControlSetWrapperPtr->objectPtr;
             encodeContextPtr = sequenceControlSetPtr->encodeContextPtr;
-
+            eb_add_time_entry(EB_PIC_MANAGER, EB_START, (EbTaskType)inputPictureDemuxPtr->pictureType, inputPictureDemuxPtr->pictureNumber, -1);
             referenceQueueIndex = encodeContextPtr->referencePictureQueueHeadIndex;
             // Find the Reference in the Reference Queue
             do {
@@ -851,7 +851,7 @@ void* PictureManagerKernel(void *inputPtr)
 
                             ChildPictureControlSetPtr->refPicQpArray[REF_LIST_1]  = ((EbReferenceObject_t*) referenceEntryPtr->referenceObjectPtr->objectPtr)->qp;
                             ChildPictureControlSetPtr->refSliceTypeArray[REF_LIST_1] = ((EbReferenceObject_t*) referenceEntryPtr->referenceObjectPtr->objectPtr)->sliceType;
-                            
+
 
 
                             // Increment the Reference's liveCount by the number of tiles in the input picture
@@ -893,6 +893,7 @@ void* PictureManagerKernel(void *inputPtr)
                     rateControlTasksPtr->pictureControlSetWrapperPtr = ChildPictureControlSetWrapperPtr;
                     rateControlTasksPtr->taskType                    = RC_PICTURE_MANAGER_RESULT;
 
+                    eb_add_time_entry(EB_PIC_MANAGER, EB_FINISH, (EbTaskType)RC_PICTURE_MANAGER_RESULT, inputPictureDemuxPtr->pictureNumber, -1);
                     // Post the Full Results Object
                     EbPostFullObject(outputWrapperPtr);
 #if LATENCY_PROFILE

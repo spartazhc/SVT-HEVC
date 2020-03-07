@@ -613,6 +613,7 @@ void* PictureDecisionKernel(void *inputPtr)
         pictureControlSetPtr    = (PictureParentControlSet_t*)  inputResultsPtr->pictureControlSetWrapperPtr->objectPtr;
         sequenceControlSetPtr   = (SequenceControlSet_t*)       pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
         encodeContextPtr        = (EncodeContext_t*)            sequenceControlSetPtr->encodeContextPtr;
+        eb_add_time_entry(EB_PIC_DECISION, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 
 #if DEADLOCK_DEBUG
         SVT_LOG("POC %lld PD IN \n", pictureControlSetPtr->pictureNumber);
@@ -1306,6 +1307,7 @@ void* PictureDecisionKernel(void *inputPtr)
 
                                 outputResultsPtr->segmentIndex = segmentIndex;
 
+                                eb_add_time_entry(EB_PIC_DECISION, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, segmentIndex);
                                 // Post the Full Results Object
                                 EbPostFullObject(outputResultsWrapperPtr);
                             }

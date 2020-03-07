@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define DEBUG_TIMESTAMP
+
 #ifndef NDEBUG
 #define DEBUG_MEMORY_USAGE
 #endif
@@ -20,6 +22,44 @@ typedef enum EB_PTRType {
     EB_THREAD = 5,        // thread handle
     EB_PTR_TYPE_TOTAL,
 } EB_PTRType;
+
+typedef enum EbTimeType
+{
+	EB_START = 0,
+	EB_FINISH = 1,
+	EB_START_NO_FINISH = 2,
+	EB_INSIDE = 3
+} EbTimeType;
+
+ typedef enum EbTaskType
+{
+	EB_TASK0 = 0,
+	EB_TASK1 = 1,
+	EB_TASK2 = 2,
+	EB_TASK3 = 3
+} EbTaskType;
+
+ // TimeEntryProcessType
+typedef enum EbProcessType
+{
+	EB_RESOURCE = 0,
+	EB_PIC_ANALYSIS = 1,
+	EB_PIC_DECISION = 2,
+	EB_ME = 3,
+	EB_INIT_RC = 4,
+	EB_SBO = 5,
+	EB_PIC_MANAGER = 6,
+	EB_RC = 7,
+	EB_MD_CONFIG = 8,
+	EB_ENCDEC = 9,
+	EB_ENTROPY = 10,
+	EB_PACKET = 11,
+	EB_PROCESS_TYPE_TOTAL
+} EbProcessType;
+
+
+void eb_add_time_entry(EbProcessType Ptype, EbTimeType TimeType, EbTaskType TaskType, uint64_t pic_num, int32_t seg_idx);
+
 
 #ifdef DEBUG_MEMORY_USAGE
 void EbAddMemEntry(void* ptr,  EB_PTRType type, size_t count, const char* file, uint32_t line);
@@ -198,6 +238,7 @@ void EbRemoveMemEntry(void* ptr, EB_PTRType type);
     EB_FREE_ALIGNED(pa)
 
 
+void eb_print_time_usage();
 void EbPrintMemoryUsage();
 void EbIncreaseComponentCount();
 void EbDecreaseComponentCount();

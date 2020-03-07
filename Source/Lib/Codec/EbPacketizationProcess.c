@@ -174,6 +174,7 @@ void* PacketizationKernel(void *inputPtr)
         EB_CHECK_END_OBJ(entropyCodingResultsWrapperPtr);
         entropyCodingResultsPtr = (EntropyCodingResults_t*) entropyCodingResultsWrapperPtr->objectPtr;
         pictureControlSetPtr    = (PictureControlSet_t*)    entropyCodingResultsPtr->pictureControlSetWrapperPtr->objectPtr;
+        eb_add_time_entry(EB_PACKET, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
         sequenceControlSetPtr   = (SequenceControlSet_t*)   pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
         encodeContextPtr        = (EncodeContext_t*)        sequenceControlSetPtr->encodeContextPtr;
         tileCnt = pictureControlSetPtr->ParentPcsPtr->tileRowCount * pictureControlSetPtr->ParentPcsPtr->tileColumnCount;
@@ -786,10 +787,12 @@ void* PacketizationKernel(void *inputPtr)
             EbReleaseMutex(encodeContextPtr->scBufferMutex);
         }
 
+        eb_add_time_entry(EB_PACKET, EB_FINISH, (EbTaskType)RC_PACKETIZATION_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, -1);
         // Post Rate Control Taks
         EbPostFullObject(rateControlTasksWrapperPtr);
 
         if (sequenceControlSetPtr->staticConfig.rateControlMode) {
+            eb_add_time_entry(EB_PACKET, EB_FINISH, (EbTaskType)EB_PIC_FEEDBACK, pictureControlSetPtr->pictureNumber, -1);
             // Post the Full Results Object
             EbPostFullObject(pictureManagerResultsWrapperPtr);
         }
@@ -962,6 +965,7 @@ void* PacketizationKernel(void *inputPtr)
                 encodeContextPtr->fillerBitError = (EB_S64)(queueEntryPtr->fillerBitsFinal - queueEntryPtr->fillerBitsSent);
                 EbReleaseMutex(encodeContextPtr->bufferFillMutex);
             }
+            eb_add_time_entry(EB_PACKET, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
             EbPostFullObject(outputStreamWrapperPtr);
             // Reset the Reorder Queue Entry
             queueEntryPtr->pictureNumber    += PACKETIZATION_REORDER_QUEUE_MAX_DEPTH;
