@@ -190,7 +190,7 @@ int32_t main(int32_t argc, char* argv[])
                 EB_APP_MEMORY();
 #endif
             }
-            printf("Encoding          ");
+            printf("Encoding          \n");
             fflush(stdout);
 
             while (exitCondition == APP_ExitConditionNone) {

@@ -15,7 +15,7 @@ extern "C" {
 #define OUT_ALLOC 1 // Output bitsream allocation at run time for both single/multi core
 
 //#define BENCHMARK 0
-#define LATENCY_PROFILE 0
+#define LATENCY_PROFILE 1
 //#define DEBUG_LIFE_CYCLE 0
 // Internal Marcos
 #define NON_AVX512_SUPPORT

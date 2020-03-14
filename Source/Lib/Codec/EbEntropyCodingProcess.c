@@ -488,6 +488,26 @@ void* EntropyCodingKernel(void *inputPtr)
 						    EncodeSliceFinish(pictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCoderPtr);
                         }
 
+#if LATENCY_PROFILE
+                        double latency = 0.0;
+                        EB_U64 finishTimeSeconds = 0;
+                        EB_U64 finishTimeuSeconds = 0;
+                        EbHevcFinishTime((uint64_t*)&finishTimeSeconds, (uint64_t*)&finishTimeuSeconds);
+
+                        EbHevcComputeOverallElapsedTimeMs(
+                                pictureControlSetPtr->ParentPcsPtr->startTimeSeconds,
+                                pictureControlSetPtr->ParentPcsPtr->startTimeuSeconds,
+                                finishTimeSeconds,
+                                finishTimeuSeconds,
+                                &latency);
+
+                        SVT_LOG("POC %lld tile_idx %ld ENTROPY, decoder order %d, latency %3.3f \n",
+                                pictureControlSetPtr->pictureNumber,
+                                tileIdx,
+                                pictureControlSetPtr->ParentPcsPtr->decodeOrder,
+                                latency);
+#endif
+
                         //Jing: TODO
                         //Release the ref if the whole pic are done
                         EbBlockOnMutex(pictureControlSetPtr->entropyCodingPicMutex);

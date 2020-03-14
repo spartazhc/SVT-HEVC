@@ -1402,11 +1402,11 @@ APPEXITCONDITIONTYPE ProcessOutputStreamBuffer(
         ++frameCount;
 #else
         //++frameCount;
-        printf("\b\b\b\b\b\b\b\b\b%9d", ++frameCount);
+        //printf("\b\b\b\b\b\b\b\b\b%9d", ++frameCount);
 #endif
 
-        //++frameCount;
-        fflush(stdout);
+        ++frameCount;
+        //fflush(stdout);
 
         // Queue the buffer again if the port is still active
         {
