@@ -39,6 +39,6 @@ typedef struct EbAppContext_s {
  * External Function
  ********************************/
 extern EB_ERRORTYPE InitEncoder(EbConfig_t *config, EbAppContext_t *callbackData, uint32_t instanceIdx);
-extern EB_ERRORTYPE DeInitEncoder(EbAppContext_t *callbackDataPtr, uint32_t instanceIndex);
+extern EB_ERRORTYPE DeInitEncoder(EbAppContext_t *callbackDataPtr, uint32_t instanceIndex, const char* profilePATH);
 
 #endif // EbAppContext_h

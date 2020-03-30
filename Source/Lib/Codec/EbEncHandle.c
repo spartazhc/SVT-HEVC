@@ -1508,11 +1508,12 @@ EB_API EB_ERRORTYPE EbInitEncoder(EB_COMPONENTTYPE *h265EncComponent)
 #ifdef __GNUC__
 __attribute__((visibility("default")))
 #endif
-EB_API EB_ERRORTYPE EbDeinitEncoder(EB_COMPONENTTYPE *h265EncComponent)
+EB_API EB_ERRORTYPE EbDeinitEncoder(EB_COMPONENTTYPE *h265EncComponent, const char* profilePATH)
 {
     if (h265EncComponent == NULL)
         return EB_ErrorBadParameter;
-    eb_print_time_usage();
+    if (profilePATH[0])
+        eb_print_time_usage(profilePATH);
     EbEncHandle_t *encHandlePtr = (EbEncHandle_t*)h265EncComponent->pComponentPrivate;
     if (encHandlePtr) {
         //Jing: Send signal to quit thread
@@ -1574,7 +1575,7 @@ EB_API EB_ERRORTYPE EbInitHandle(
         return_error = EbH265EncInitParameter(configPtr);
     }
     if (return_error != EB_ErrorNone) {
-        EbDeinitEncoder(*pHandle);
+        EbDeinitEncoder(*pHandle, NULL);
         free(*pHandle);
         *pHandle = NULL;
         return return_error;

@@ -680,14 +680,15 @@ EB_ERRORTYPE InitEncoder(
  ***********************************/
 EB_ERRORTYPE DeInitEncoder(
     EbAppContext_t *callbackDataPtr,
-    uint32_t        instanceIndex)
+    uint32_t        instanceIndex,
+    const char*     profilePATH)
 {
     EB_ERRORTYPE return_error = EB_ErrorNone;
     int32_t              ptrIndex        = 0;
     EbMemoryMapEntry*   memoryEntry     = (EbMemoryMapEntry*)0;
 
     if (((EB_COMPONENTTYPE*)(callbackDataPtr->svtEncoderHandle)) != NULL) {
-            return_error = EbDeinitEncoder(callbackDataPtr->svtEncoderHandle);
+            return_error = EbDeinitEncoder(callbackDataPtr->svtEncoderHandle, profilePATH);
     }
 
     // Destruct the buffer memory pool

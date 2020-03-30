@@ -200,6 +200,7 @@ typedef struct EbConfig_s
     FILE                   *reconFile;
     FILE                   *errorLogFile;
 	FILE                   *bufferFile;
+    char                    profilePATH[MAX_STRING_LENGTH];
 
     FILE                   *qpFile;
 
