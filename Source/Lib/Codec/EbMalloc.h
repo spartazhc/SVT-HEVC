@@ -238,7 +238,7 @@ void EbRemoveMemEntry(void* ptr, EB_PTRType type);
     EB_FREE_ALIGNED(pa)
 
 
-void eb_print_time_usage();
+void eb_print_time_usage(const char* profilePATH);
 void EbPrintMemoryUsage();
 void EbIncreaseComponentCount();
 void EbDecreaseComponentCount();

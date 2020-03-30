@@ -548,13 +548,13 @@ void eb_add_time_entry(EbProcessType Ptype, EbTimeType TimeType, EbTaskType Task
 #endif
 }
 
-void eb_print_time_usage() {
+void eb_print_time_usage(const char* profilePATH) {
 #ifdef DEBUG_TIMESTAMP
     EB_HANDLE m = get_time_mutex();
     EbBlockOnMutex(m);
     FILE *fp = NULL, *fp_raw = NULL;
-    fp = fopen("/tmp/profile_hevc.csv", "w+");
-    fp_raw = fopen("/tmp/profile_hevc_raw.csv", "w+");
+    fp = fopen(profilePATH, "w+");
+    // fp_raw = fopen("/tmp/profile_hevc_raw.csv", "w+");
     qsort(g_time_entry, TIME_ENTRY_SIZE, sizeof(TimeEntry), compare_time);
     int i = 0;
     double mtime;
@@ -568,13 +568,13 @@ void eb_print_time_usage() {
         fprintf(fp, "%s, Timetype=%d, TaskType=%d, pic_num=%zu, seg_idx=%d, TimeUseinMS=%.4f\n",
             process_name(g_time_entry[i].Ptype), (int)g_time_entry[i].time_type, (int)g_time_entry[i].task_type,
              g_time_entry[i].pic_num, g_time_entry[i].seg_idx, mtime);
-        fprintf(fp_raw, "%d, %d, %d, %zu, %d, %.4f\n",
-            (int)g_time_entry[i].Ptype, (int)g_time_entry[i].time_type, (int)g_time_entry[i].task_type,
-             g_time_entry[i].pic_num, g_time_entry[i].seg_idx, mtime);
+        // fprintf(fp_raw, "%d, %d, %d, %zu, %d, %.4f\n",
+        //     (int)g_time_entry[i].Ptype, (int)g_time_entry[i].time_type, (int)g_time_entry[i].task_type,
+        //      g_time_entry[i].pic_num, g_time_entry[i].seg_idx, mtime);
         ++i;
     }
     fclose(fp);
-    fclose(fp_raw);
+    // fclose(fp_raw);
     EbReleaseMutex(m);
 #endif
 }

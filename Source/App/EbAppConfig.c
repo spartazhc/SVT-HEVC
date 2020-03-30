@@ -28,6 +28,7 @@
 #define CONFIG_FILE_TOKEN               "-c"
 #define INPUT_FILE_TOKEN                "-i"
 #define OUTPUT_BITSTREAM_TOKEN          "-b"
+#define PROFILE_PATH_TOKEN              "-profile-path"
 #define OUTPUT_RECON_TOKEN              "-o"
 #define ERROR_FILE_TOKEN                "-errlog"
 #define STAT_FILE_TOKEN                 "-stat-file"
@@ -253,6 +254,9 @@ static void SetMasterDisplay                    (const char *value, EbConfig_t *
     if (cfg->useMasteringDisplayColorVolume)
         EB_STRCPY(cfg->masteringDisplayColorVolumeString, EB_STRLEN(value, MAX_STRING_LENGTH) + 1, value);
 };
+static void SetCfgProfilePATH                    (const char *value, EbConfig_t *cfg) {
+    EB_STRCPY(cfg->profilePATH, EB_STRLEN(value, MAX_STRING_LENGTH) + 1, value);
+};
 static void SetDolbyVisionProfile               (const char *value, EbConfig_t *cfg) {
     if (strtoul(value, NULL, 0) != 0 || EB_STRCMP(value, "0") == 0)
         cfg->dolbyVisionProfile = (uint32_t)(10 * strtod(value, NULL));
@@ -311,6 +315,7 @@ config_entry_t config_entry[] = {
     { SINGLE_INPUT, QP_FILE_TOKEN, "QpFile", SetCfgQpFile },
     { SINGLE_INPUT, SEGMENT_OV_FILE_TOKEN, "SegmentOvFile", SetCfgSegmentOvFile},
 
+    { SINGLE_INPUT, PROFILE_PATH_TOKEN, "ProfilePATH", SetCfgProfilePATH },
     // Interlaced Video
     { SINGLE_INPUT, INTERLACED_VIDEO_TOKEN, "InterlacedVideo", SetInterlacedVideo },
     // Do NOT move, the value is used in other entries

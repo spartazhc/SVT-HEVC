@@ -305,7 +305,7 @@ int32_t main(int32_t argc, char* argv[])
         // DeInit Encoder
         for (instanceCount = numChannels; instanceCount > 0; --instanceCount) {
             if (return_errors[instanceCount - 1] == EB_ErrorNone)
-                return_errors[instanceCount - 1] = DeInitEncoder(appCallbacks[instanceCount - 1], instanceCount - 1);
+                return_errors[instanceCount - 1] = DeInitEncoder(appCallbacks[instanceCount - 1], instanceCount - 1, configs[instanceCount-1]->profilePATH);
         }
     }
     else {
