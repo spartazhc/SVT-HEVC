@@ -359,7 +359,7 @@ void* EntropyCodingKernel(void *inputPtr)
         pictureControlSetPtr   = (PictureControlSet_t*) encDecResultsPtr->pictureControlSetWrapperPtr->objectPtr;
         sequenceControlSetPtr  = (SequenceControlSet_t*) pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
         tileIdx                = encDecResultsPtr->tileIndex;
-        eb_add_time_entry(EB_ENTROPY, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, tileIdx);
+        eb_add_time_entry(EB_ENTROPY, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, encDecResultsPtr->completedLcuRowIndexStart);
         tileRowIdx             = tileIdx / pictureControlSetPtr->ParentPcsPtr->tileColumnCount;
         tileColIdx             = tileIdx % pictureControlSetPtr->ParentPcsPtr->tileColumnCount;
         lastLcuFlagInSlice     = EB_FALSE;
