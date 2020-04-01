@@ -867,6 +867,11 @@ void* InitialRateControlKernel(void *inputPtr)
 	EbObjectWrapper_t                  *referencePictureWrapperPtr;
 
 
+    // Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
+	EB_BOOL							time_flag = EB_TRUE;
+
 	for (;;) {
 
 		// Get Input Full Object
@@ -875,15 +880,18 @@ void* InitialRateControlKernel(void *inputPtr)
 			&inputResultsWrapperPtr);
         EB_CHECK_END_OBJ(inputResultsWrapperPtr);
 
+		if (time_flag) {
+			time_flag = EB_FALSE;
+			EbHevcStartTime(&start_sTime, &start_uTime);
+		}
 		inputResultsPtr = (MotionEstimationResults_t*)inputResultsWrapperPtr->objectPtr;
 		pictureControlSetPtr = (PictureParentControlSet_t*)inputResultsPtr->pictureControlSetWrapperPtr->objectPtr;
-		eb_add_time_entry(EB_INIT_RC, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, inputResultsPtr->segmentIndex);
+#if DEADLOCK_DEBUG
+        SVT_LOG("POC %lld IRC IN \n", pictureControlSetPtr->pictureNumber);
+#endif
         pictureControlSetPtr->meSegmentsCompletionMask++;
         if (pictureControlSetPtr->meSegmentsCompletionMask == pictureControlSetPtr->meSegmentsTotalCount) {
-#if DEADLOCK_DEBUG
-            if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
-                SVT_LOG("POC %lu IRC IN \n", pictureControlSetPtr->pictureNumber);
-#endif
+			time_flag = EB_TRUE;
 			sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
 			encodeContextPtr = (EncodeContext_t*)sequenceControlSetPtr->encodeContextPtr;
 
@@ -1082,7 +1090,6 @@ void* InitialRateControlKernel(void *inputPtr)
 					outputResultsPtr = (InitialRateControlResults_t*)outputResultsWrapperPtr->objectPtr;
 					outputResultsPtr->pictureControlSetWrapperPtr = queueEntryPtr->parentPcsWrapperPtr;
 					/////////////////////////////
-					eb_add_time_entry(EB_INIT_RC, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 					// Post the Full Results Object
 					EbPostFullObject(outputResultsWrapperPtr);
 #if DEADLOCK_DEBUG
@@ -1090,6 +1097,9 @@ void* InitialRateControlKernel(void *inputPtr)
                         SVT_LOG("POC %lu IRC OUT \n", pictureControlSetPtr->pictureNumber);
 #endif
 
+					// IRC: seg in -> pic out, start time = first seg in
+					eb_add_time_entry(EB_IRC, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
 #if LATENCY_PROFILE
         double latency = 0.0;
         EB_U64 finishTimeSeconds = 0;

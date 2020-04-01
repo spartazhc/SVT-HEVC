@@ -611,6 +611,10 @@ void* PictureDecisionKernel(void *inputPtr)
     // Debug
     EB_U64                           loopCount = 0;
 
+    // Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
+
     for(;;) {
 
         // Get Input Full Object
@@ -619,11 +623,11 @@ void* PictureDecisionKernel(void *inputPtr)
             &inputResultsWrapperPtr);
         EB_CHECK_END_OBJ(inputResultsWrapperPtr);
 
+        EbHevcStartTime(&start_sTime, &start_uTime);
         inputResultsPtr         = (PictureAnalysisResults_t*)   inputResultsWrapperPtr->objectPtr;
         pictureControlSetPtr    = (PictureParentControlSet_t*)  inputResultsPtr->pictureControlSetWrapperPtr->objectPtr;
         sequenceControlSetPtr   = (SequenceControlSet_t*)       pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
         encodeContextPtr        = (EncodeContext_t*)            sequenceControlSetPtr->encodeContextPtr;
-        eb_add_time_entry(EB_PIC_DECISION, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 
 #if DEADLOCK_DEBUG
         if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
@@ -1328,7 +1332,6 @@ void* PictureDecisionKernel(void *inputPtr)
 
                                 outputResultsPtr->segmentIndex = segmentIndex;
 
-                                eb_add_time_entry(EB_PIC_DECISION, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, segmentIndex);
                                 // Post the Full Results Object
                                 EbPostFullObject(outputResultsWrapperPtr);
                             }
@@ -1336,6 +1339,9 @@ void* PictureDecisionKernel(void *inputPtr)
                             if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
                                 SVT_LOG("POC %lu PD OUT \n", pictureControlSetPtr->pictureNumber);
 #endif
+                            // PD: pic in -> seg out, end time = last seg out
+                            eb_add_time_entry(EB_PD, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, segmentIndex, -1,
+                                                    start_sTime, start_uTime);
                         }
 
 						if (pictureIndex == contextPtr->miniGopEndIndex[miniGopIndex]) {

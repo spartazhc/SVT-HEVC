@@ -188,6 +188,10 @@ void* PictureManagerKernel(void *inputPtr)
     // Debug
     EB_U32 loopCount = 0;
 
+    // Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
+
     for(;;) {
 
         // Get Input Full Object
@@ -196,6 +200,7 @@ void* PictureManagerKernel(void *inputPtr)
             &inputPictureDemuxWrapperPtr);
         EB_CHECK_END_OBJ(inputPictureDemuxWrapperPtr);
 
+        EbHevcStartTime(&start_sTime, &start_uTime);
         inputPictureDemuxPtr = (PictureDemuxResults_t*) inputPictureDemuxWrapperPtr->objectPtr;
 
         // *Note - This should be overhauled and/or replaced when we
@@ -209,7 +214,6 @@ void* PictureManagerKernel(void *inputPtr)
             pictureControlSetPtr            = (PictureParentControlSet_t*)  inputPictureDemuxPtr->pictureControlSetWrapperPtr->objectPtr;
             sequenceControlSetPtr           = (SequenceControlSet_t*) pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
             encodeContextPtr                = sequenceControlSetPtr->encodeContextPtr;
-            eb_add_time_entry(EB_PIC_MANAGER, EB_START, (EbTaskType)inputPictureDemuxPtr->pictureType, pictureControlSetPtr->pictureNumber, -1);
 #if DEADLOCK_DEBUG
             if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
                 SVT_LOG("POC %lu PM IN \n", pictureControlSetPtr->pictureNumber);
@@ -521,7 +525,6 @@ void* PictureManagerKernel(void *inputPtr)
 
             sequenceControlSetPtr   = (SequenceControlSet_t*) inputPictureDemuxPtr->sequenceControlSetWrapperPtr->objectPtr;
             encodeContextPtr        = sequenceControlSetPtr->encodeContextPtr;
-            eb_add_time_entry(EB_PIC_MANAGER, EB_START, (EbTaskType)inputPictureDemuxPtr->pictureType, inputPictureDemuxPtr->pictureNumber, -1);
             // Check if Reference Queue is full
             CHECK_REPORT_ERROR(
                 (encodeContextPtr->referencePictureQueueHeadIndex != encodeContextPtr->referencePictureQueueTailIndex),
@@ -558,13 +561,13 @@ void* PictureManagerKernel(void *inputPtr)
             //keep the release of SCS here because we still need the encodeContext strucutre here
             // Release the Reference's SequenceControlSet
             EbReleaseObject(inputPictureDemuxPtr->sequenceControlSetWrapperPtr);
-
+            eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, EB_NOTASK, inputPictureDemuxPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
             break;
         case EB_PIC_FEEDBACK:
 
             sequenceControlSetPtr = (SequenceControlSet_t*)inputPictureDemuxPtr->sequenceControlSetWrapperPtr->objectPtr;
             encodeContextPtr = sequenceControlSetPtr->encodeContextPtr;
-            eb_add_time_entry(EB_PIC_MANAGER, EB_START, (EbTaskType)inputPictureDemuxPtr->pictureType, inputPictureDemuxPtr->pictureNumber, -1);
             referenceQueueIndex = encodeContextPtr->referencePictureQueueHeadIndex;
             // Find the Reference in the Reference Queue
             do {
@@ -581,7 +584,8 @@ void* PictureManagerKernel(void *inputPtr)
             //keep the relase of SCS here because we still need the encodeContext strucutre here
             // Release the Reference's SequenceControlSet
             EbReleaseObject(inputPictureDemuxPtr->sequenceControlSetWrapperPtr);
-
+            eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, EB_NOTASK, inputPictureDemuxPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
             break;
         default:
 
@@ -892,7 +896,6 @@ void* PictureManagerKernel(void *inputPtr)
                     rateControlTasksPtr->pictureControlSetWrapperPtr = ChildPictureControlSetWrapperPtr;
                     rateControlTasksPtr->taskType                    = RC_PICTURE_MANAGER_RESULT;
 
-                    eb_add_time_entry(EB_PIC_MANAGER, EB_FINISH, (EbTaskType)RC_PICTURE_MANAGER_RESULT, inputPictureDemuxPtr->pictureNumber, -1);
                     // Post the Full Results Object
                     EbPostFullObject(outputWrapperPtr);
 #if DEADLOCK_DEBUG
@@ -900,6 +903,8 @@ void* PictureManagerKernel(void *inputPtr)
                         SVT_LOG("POC %lu PM OUT \n", ChildPictureControlSetPtr->pictureNumber);
 #endif
 
+                    eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, (EbTaskType)RC_PICTURE_MANAGER_RESULT, inputPictureDemuxPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
 #if LATENCY_PROFILE
                     double latency = 0.0;
                     EB_U64 finishTimeSeconds = 0;

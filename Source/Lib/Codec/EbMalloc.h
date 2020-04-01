@@ -23,16 +23,9 @@ typedef enum EB_PTRType {
     EB_PTR_TYPE_TOTAL,
 } EB_PTRType;
 
-typedef enum EbTimeType
+typedef enum EbTaskType
 {
-	EB_START = 0,
-	EB_FINISH = 1,
-	EB_START_NO_FINISH = 2,
-	EB_INSIDE = 3
-} EbTimeType;
-
- typedef enum EbTaskType
-{
+    EB_NOTASK = -1,
 	EB_TASK0 = 0,
 	EB_TASK1 = 1,
 	EB_TASK2 = 2,
@@ -43,14 +36,14 @@ typedef enum EbTimeType
 typedef enum EbProcessType
 {
 	EB_RESOURCE = 0,
-	EB_PIC_ANALYSIS = 1,
-	EB_PIC_DECISION = 2,
+	EB_PA = 1,
+	EB_PD = 2,
 	EB_ME = 3,
-	EB_INIT_RC = 4,
+	EB_IRC = 4,
 	EB_SBO = 5,
-	EB_PIC_MANAGER = 6,
+	EB_PM = 6,
 	EB_RC = 7,
-	EB_MD_CONFIG = 8,
+	EB_MDC = 8,
 	EB_ENCDEC = 9,
 	EB_ENTROPY = 10,
 	EB_PACKET = 11,
@@ -58,8 +51,9 @@ typedef enum EbProcessType
 } EbProcessType;
 
 
-void eb_add_time_entry(EbProcessType Ptype, EbTimeType TimeType, EbTaskType TaskType, uint64_t pic_num, int32_t seg_idx);
-
+void eb_add_time_entry(EbProcessType proc_type, EbTaskType in_type, EbTaskType out_type,
+                        uint32_t pic_num, int8_t seg_idx, int8_t tile_idx,
+                        uint64_t start_sTime, uint64_t start_uTime);
 
 #ifdef DEBUG_MEMORY_USAGE
 void EbAddMemEntry(void* ptr,  EB_PTRType type, size_t count, const char* file, uint32_t line);

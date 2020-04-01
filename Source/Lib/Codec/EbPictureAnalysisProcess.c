@@ -4228,6 +4228,10 @@ void* PictureAnalysisKernel(void *inputPtr)
 	EB_U32                          pictureHeighInLcu;
 	EB_U32                          lcuTotalCount;
 
+	// Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
+
 	for (;;) {
 
 		// Get Input Full Object
@@ -4236,9 +4240,9 @@ void* PictureAnalysisKernel(void *inputPtr)
 			&inputResultsWrapperPtr);
         EB_CHECK_END_OBJ(inputResultsWrapperPtr);
 
+		EbHevcStartTime(&start_sTime, &start_uTime);
 		inputResultsPtr = (ResourceCoordinationResults_t*)inputResultsWrapperPtr->objectPtr;
 		pictureControlSetPtr = (PictureParentControlSet_t*)inputResultsPtr->pictureControlSetWrapperPtr->objectPtr;
-		eb_add_time_entry(EB_PIC_ANALYSIS, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 		sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
 		inputPicturePtr = pictureControlSetPtr->enhancedPicturePtr;
 #if DEADLOCK_DEBUG
@@ -4363,7 +4367,6 @@ void* PictureAnalysisKernel(void *inputPtr)
                 pictureControlSetPtr->decodeOrder,
                 latency);
 #endif
-		eb_add_time_entry(EB_PIC_ANALYSIS, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 		// Post the Full Results Object
 		EbPostFullObject(outputResultsWrapperPtr);
 
@@ -4371,6 +4374,8 @@ void* PictureAnalysisKernel(void *inputPtr)
         if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
             SVT_LOG("POC %lu PA OUT \n", pictureControlSetPtr->pictureNumber);
 #endif
+		eb_add_time_entry(EB_PA, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
+						start_sTime, start_uTime);
 	}
 	return EB_NULL;
 }

@@ -445,13 +445,16 @@ EB_U32 hash_ti(EB_U64 p)
 }
 
 typedef struct TimeEntry{
-    EB_U64 pic_num;
-    EB_S32 seg_idx;
-    EbTimeType time_type;
-    EbTaskType task_type;
-    EbProcessType Ptype;
-    EB_U64 sTime;
-    EB_U64 uTime;
+    EB_U32 pic_num;
+    EB_S8 seg_idx;
+    EB_S8 tile_idx;
+    EbTaskType in_type;
+    EbTaskType out_type;
+    EbProcessType proc_type;
+    EB_U64 start_sTime;
+    EB_U64 start_uTime;
+    EB_U64 end_sTime;
+    EB_U64 end_uTime;
 } TimeEntry;
 
  //+1 to get a better hash result
@@ -494,7 +497,7 @@ static EB_BOOL for_each_time_entry(EB_U32 start, Predicate2 pred, void* param)
 static EB_BOOL add_time_entry(TimeEntry* e, void* param)
 {
     TimeEntry* new_item = (TimeEntry*)param;
-    if (!e->uTime) {
+    if (!e->start_uTime) {
         EB_MEMCPY(e, new_item, sizeof(TimeEntry));
         return EB_TRUE;
     }
@@ -505,22 +508,22 @@ static int compare_time(const void* a,const void* b)
 {
     const TimeEntry* pa = (const TimeEntry*)a;
     const TimeEntry* pb = (const TimeEntry*)b;
-    if (pa->sTime == 0 && pb->sTime != 0) return 1;
-    if (pa->sTime != 0 && pb->sTime == 0) return -1;
-    if (pa->sTime < pb->sTime) return -1;
-    else if (pa->sTime == pb->sTime) {
-        if (pa->uTime < pb->uTime) return -1;
-        else if (pa->uTime > pb->uTime) return 1;
+    if (pa->start_sTime == 0 && pb->start_sTime != 0) return 1;
+    if (pa->start_sTime != 0 && pb->start_sTime == 0) return -1;
+    if (pa->start_sTime < pb->start_sTime) return -1;
+    else if (pa->start_sTime == pb->start_sTime) {
+        if (pa->start_uTime < pb->start_uTime) return -1;
+        else if (pa->start_uTime > pb->start_uTime) return 1;
         else return 0;
     }
     return 1;
 }
 
 static const char *process_namelist[EB_PROCESS_TYPE_TOTAL] = {
-    "resource_coord", "pic_analysis", "pic_decision",
-    "motion_estimation", "initial_rc", "source_based_op",
-    "pic_manager", "rate_control", "mode_decision",
-    "enc_dec", "entropy_coding", "packetization"
+    "RESOURCE", "PA", "PD",
+    "ME", "IRC", "SRC",
+    "PM", "RC", "MDC",
+    "ENCDEC", "ENTROPY", "PAK"
 };
 static const char* process_name(EbProcessType type)
 {
@@ -528,17 +531,22 @@ static const char* process_name(EbProcessType type)
 }
 
 #endif // DEBUG_TIMESTAMP
-void eb_add_time_entry(EbProcessType Ptype, EbTimeType TimeType, EbTaskType TaskType, EB_U64 pic_num, EB_S32 seg_idx)
+void eb_add_time_entry(EbProcessType proc_type, EbTaskType in_type, EbTaskType out_type,
+                        EB_U32 pic_num, EB_S8 seg_idx, EB_S8 tile_idx,
+                        EB_U64 start_sTime, EB_U64 start_uTime)
 {
 #ifdef DEBUG_TIMESTAMP
     TimeEntry item;
     item.pic_num = pic_num;
     item.seg_idx = seg_idx;
-    item.time_type = TimeType;
-    item.task_type = TaskType;
-    item.Ptype = Ptype;
-    EbHevcStartTime(&item.sTime, &item.uTime);
-    if (for_each_time_entry(hash_ti(item.uTime), add_time_entry, &item))
+    item.tile_idx = tile_idx;
+    item.in_type = in_type;
+    item.out_type = out_type;
+    item.proc_type = proc_type;
+    item.start_sTime = start_sTime;
+    item.start_uTime = start_uTime;
+    EbHevcStartTime(&item.end_sTime, &item.end_uTime);
+    if (for_each_time_entry(hash_ti(item.start_sTime), add_time_entry, &item))
         return;
     if (g_add_time_entry_warning) {
         fprintf(stderr, "SVT: can't add time entry.\r\n");
@@ -552,22 +560,34 @@ void eb_print_time_usage(const char* profilePATH) {
 #ifdef DEBUG_TIMESTAMP
     EB_HANDLE m = get_time_mutex();
     EbBlockOnMutex(m);
-    FILE *fp = NULL, *fp_raw = NULL;
+    FILE *fp = NULL; //*fp_raw = NULL;
     fp = fopen(profilePATH, "w+");
     // fp_raw = fopen("/tmp/profile_hevc_raw.csv", "w+");
     qsort(g_time_entry, TIME_ENTRY_SIZE, sizeof(TimeEntry), compare_time);
     int i = 0;
-    double mtime;
-    while (g_time_entry[i].uTime) {
+    double s_mtime, e_mtime, duration;
+    while (g_time_entry[i].start_uTime) {
         EbHevcComputeOverallElapsedTimeRealMs(
-            g_time_entry[0].sTime,
-            g_time_entry[0].uTime,
-            g_time_entry[i].sTime,
-            g_time_entry[i].uTime,
-            &mtime);
-        fprintf(fp, "%s, Timetype=%d, TaskType=%d, pic_num=%zu, seg_idx=%d, TimeUseinMS=%.4f\n",
-            process_name(g_time_entry[i].Ptype), (int)g_time_entry[i].time_type, (int)g_time_entry[i].task_type,
-             g_time_entry[i].pic_num, g_time_entry[i].seg_idx, mtime);
+            g_time_entry[0].start_sTime,
+            g_time_entry[0].start_uTime,
+            g_time_entry[i].start_sTime,
+            g_time_entry[i].start_uTime,
+            &s_mtime);
+        EbHevcComputeOverallElapsedTimeRealMs(
+            g_time_entry[0].start_sTime,
+            g_time_entry[0].start_uTime,
+            g_time_entry[i].end_sTime,
+            g_time_entry[i].end_uTime,
+            &e_mtime);
+        EbHevcComputeOverallElapsedTimeRealMs(
+            g_time_entry[i].start_sTime,
+            g_time_entry[i].start_uTime,
+            g_time_entry[i].end_sTime,
+            g_time_entry[i].end_uTime,
+            &duration);
+        fprintf(fp, "%s, inType=%d, outType=%d, picNum=%u, segIdx=%d, tileIdx=%d, sTime=%.2f, eTime=%.2f, duration=%.2f\n",
+            process_name(g_time_entry[i].proc_type), (int)g_time_entry[i].in_type, (int)g_time_entry[i].out_type,
+             g_time_entry[i].pic_num, g_time_entry[i].seg_idx, g_time_entry[i].tile_idx, s_mtime, e_mtime, duration);
         // fprintf(fp_raw, "%d, %d, %d, %zu, %d, %.4f\n",
         //     (int)g_time_entry[i].Ptype, (int)g_time_entry[i].time_type, (int)g_time_entry[i].task_type,
         //      g_time_entry[i].pic_num, g_time_entry[i].seg_idx, mtime);

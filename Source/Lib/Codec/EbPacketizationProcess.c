@@ -165,6 +165,10 @@ void* PacketizationKernel(void *inputPtr)
 
     EB_BOOL                         toInsertHeaders;
 
+	// Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
+
     for(;;) {
 
         // Get EntropyCoding Results
@@ -172,9 +176,9 @@ void* PacketizationKernel(void *inputPtr)
             contextPtr->entropyCodingInputFifoPtr,
             &entropyCodingResultsWrapperPtr);
         EB_CHECK_END_OBJ(entropyCodingResultsWrapperPtr);
+        EbHevcStartTime(&start_sTime, &start_uTime);
         entropyCodingResultsPtr = (EntropyCodingResults_t*) entropyCodingResultsWrapperPtr->objectPtr;
         pictureControlSetPtr    = (PictureControlSet_t*)    entropyCodingResultsPtr->pictureControlSetWrapperPtr->objectPtr;
-        eb_add_time_entry(EB_PACKET, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
         sequenceControlSetPtr   = (SequenceControlSet_t*)   pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
         encodeContextPtr        = (EncodeContext_t*)        sequenceControlSetPtr->encodeContextPtr;
         tileCnt = pictureControlSetPtr->ParentPcsPtr->tileRowCount * pictureControlSetPtr->ParentPcsPtr->tileColumnCount;
@@ -784,14 +788,16 @@ void* PacketizationKernel(void *inputPtr)
             EbReleaseMutex(encodeContextPtr->scBufferMutex);
         }
 
-        eb_add_time_entry(EB_PACKET, EB_FINISH, (EbTaskType)RC_PACKETIZATION_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, -1);
         // Post Rate Control Taks
         EbPostFullObject(rateControlTasksWrapperPtr);
+        eb_add_time_entry(EB_PACKET, EB_TASK0, (EbTaskType)RC_PACKETIZATION_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
 
         if (sequenceControlSetPtr->staticConfig.rateControlMode) {
-            eb_add_time_entry(EB_PACKET, EB_FINISH, (EbTaskType)EB_PIC_FEEDBACK, pictureControlSetPtr->pictureNumber, -1);
             // Post the Full Results Object
             EbPostFullObject(pictureManagerResultsWrapperPtr);
+            eb_add_time_entry(EB_PACKET, EB_TASK0, (EbTaskType)EB_PIC_FEEDBACK, pictureControlSetPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
         }
         //Release the Parent PCS then the Child PCS
         EbReleaseObject(entropyCodingResultsPtr->pictureControlSetWrapperPtr);//Child
@@ -820,6 +826,8 @@ void* PacketizationKernel(void *inputPtr)
             EB_U32  totalBytes = 0;
             EbHevcFinishTime((uint64_t*)&finishTimeSeconds, (uint64_t*)&finishTimeuSeconds);
 
+            eb_add_time_entry(EB_PACKET, EB_TASK0, EB_TASK2, pictureControlSetPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
             EbHevcComputeOverallElapsedTimeMs(
                 queueEntryPtr->startTimeSeconds,
                 queueEntryPtr->startTimeuSeconds,
@@ -962,13 +970,14 @@ void* PacketizationKernel(void *inputPtr)
                 encodeContextPtr->fillerBitError = (EB_S64)(queueEntryPtr->fillerBitsFinal - queueEntryPtr->fillerBitsSent);
                 EbReleaseMutex(encodeContextPtr->bufferFillMutex);
             }
-            eb_add_time_entry(EB_PACKET, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
             EbPostFullObject(outputStreamWrapperPtr);
 
 #if DEADLOCK_DEBUG
             if ((queueEntryPtr->pictureNumber >= MIN_POC) && (queueEntryPtr->pictureNumber <= MAX_POC))
                 SVT_LOG("POC %lu PK OUT \n", queueEntryPtr->pictureNumber);
 #endif
+            eb_add_time_entry(EB_PACKET, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
             // Reset the Reorder Queue Entry
             queueEntryPtr->pictureNumber    += PACKETIZATION_REORDER_QUEUE_MAX_DEPTH;
             queueEntryPtr->outputStreamWrapperPtr = (EbObjectWrapper_t *)EB_NULL;
