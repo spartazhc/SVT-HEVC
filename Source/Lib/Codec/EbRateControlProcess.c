@@ -2299,6 +2299,10 @@ void* RateControlKernel(void *inputPtr)
 
     RATE_CONTROL_TASKTYPES       taskType;
 
+    // Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
+
     for (;;) {
 
         // Get RateControl Task
@@ -2307,6 +2311,7 @@ void* RateControlKernel(void *inputPtr)
             &rateControlTasksWrapperPtr);
         EB_CHECK_END_OBJ(rateControlTasksWrapperPtr);
 
+        EbHevcStartTime(&start_sTime, &start_uTime);
         rateControlTasksPtr = (RateControlTasks_t*)rateControlTasksWrapperPtr->objectPtr;
         taskType = rateControlTasksPtr->taskType;
 
@@ -2318,7 +2323,6 @@ void* RateControlKernel(void *inputPtr)
             pictureControlSetPtr = (PictureControlSet_t*)rateControlTasksPtr->pictureControlSetWrapperPtr->objectPtr;
             sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
             encodeContextPtr = (EncodeContext_t*)sequenceControlSetPtr->encodeContextPtr;
-            eb_add_time_entry(EB_RC, EB_START, (EbTaskType)taskType, pictureControlSetPtr->pictureNumber, rateControlTasksPtr->segmentIndex);
 #if DEADLOCK_DEBUG
             SVT_LOG("POC %lld RC IN \n", pictureControlSetPtr->pictureNumber);
 #endif
@@ -2597,10 +2601,10 @@ void* RateControlKernel(void *inputPtr)
 #if DEADLOCK_DEBUG
             SVT_LOG("POC %lld RC OUT \n", pictureControlSetPtr->pictureNumber);
 #endif
-            eb_add_time_entry(EB_RC, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
             // Post Full Rate Control Results
             EbPostFullObject(rateControlResultsWrapperPtr);
-
+            eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
             // Release Rate Control Tasks
             EbReleaseObject(rateControlTasksWrapperPtr);
 
@@ -2612,7 +2616,6 @@ void* RateControlKernel(void *inputPtr)
 
             parentPictureControlSetPtr = (PictureParentControlSet_t*)rateControlTasksPtr->pictureControlSetWrapperPtr->objectPtr;
             sequenceControlSetPtr = (SequenceControlSet_t*)parentPictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
-            eb_add_time_entry(EB_RC, EB_START_NO_FINISH, (EbTaskType)taskType, parentPictureControlSetPtr->pictureNumber, rateControlTasksPtr->segmentIndex);
 
             // Frame level RC
             if (sequenceControlSetPtr->intraPeriodLength == -1 || sequenceControlSetPtr->staticConfig.rateControlMode == 0){
@@ -2803,6 +2806,8 @@ void* RateControlKernel(void *inputPtr)
 
             totalNumberOfFbFrames++;
 
+            eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_NOTASK, pictureControlSetPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
 			// Release the SequenceControlSet
 			EbReleaseObject(parentPictureControlSetPtr->sequenceControlSetWrapperPtr);
             // Release the input buffer
@@ -2815,7 +2820,8 @@ void* RateControlKernel(void *inputPtr)
             break;
 
         case RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT:
-            eb_add_time_entry(EB_RC, EB_START_NO_FINISH, (EbTaskType)taskType, rateControlTasksPtr->pictureNumber, rateControlTasksPtr->rowNumber);
+            eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_NOTASK, pictureControlSetPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
             // Extract bits-per-lcu-row
 
             // Release Rate Control Tasks

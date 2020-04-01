@@ -1541,7 +1541,9 @@ static EB_BOOL AssignEncDecSegments(
     EncDecSegments_t   *segmentPtr,
     EB_U16             *segmentInOutIndex,
     EncDecTasks_t      *taskPtr,
-    EbFifo_t           *srmFifoPtr)
+    EbFifo_t           *srmFifoPtr,
+    EB_U64              start_sTime,
+    EB_U64              start_uTime)
 {
     EB_BOOL continueProcessingFlag = EB_FALSE;
     EbObjectWrapper_t *wrapperPtr;
@@ -1664,8 +1666,11 @@ static EB_BOOL AssignEncDecSegments(
             feedbackTaskPtr->pictureControlSetWrapperPtr = taskPtr->pictureControlSetWrapperPtr;
             feedbackTaskPtr->tileGroupIndex = taskPtr->tileGroupIndex;
 
-            eb_add_time_entry(EB_ENCDEC, EB_INSIDE, (EbTaskType)ENCDEC_TASKS_ENCDEC_INPUT, ((PictureControlSet_t*)taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber, feedbackRowIndex);
             EbPostFullObject(wrapperPtr);
+            eb_add_time_entry(EB_ENCDEC, (EbTaskType)taskPtr->inputType, (EbTaskType)ENCDEC_TASKS_ENCDEC_INPUT,
+                            ((PictureControlSet_t*)taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
+                            feedbackRowIndex, taskPtr->tileGroupIndex,
+                            start_sTime, start_uTime);
         }
 
         break;
@@ -2681,6 +2686,9 @@ void* EncDecKernel(void *inputPtr)
     EB_U32                  tileGroupIdx;
     EB_U32                  tileGroupLcuStartX, tileGroupLcuStartY;
 
+	// Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
 
     for (;;) {
 
@@ -2690,9 +2698,9 @@ void* EncDecKernel(void *inputPtr)
             &encDecTasksWrapperPtr);
         EB_CHECK_END_OBJ(encDecTasksWrapperPtr);
 
+        EbHevcStartTime(&start_sTime, &start_uTime);
         encDecTasksPtr = (EncDecTasks_t*)encDecTasksWrapperPtr->objectPtr;
         pictureControlSetPtr = (PictureControlSet_t*)encDecTasksPtr->pictureControlSetWrapperPtr->objectPtr;
-        eb_add_time_entry(EB_ENCDEC, EB_START, (EbTaskType)encDecTasksPtr->inputType, pictureControlSetPtr->pictureNumber, encDecTasksPtr->encDecSegmentRow);
         ppcsPtr = pictureControlSetPtr->ParentPcsPtr;
         sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
         enableSaoFlag = (sequenceControlSetPtr->staticConfig.enableSaoFlag) ? EB_TRUE : EB_FALSE;
@@ -2795,7 +2803,7 @@ void* EncDecKernel(void *inputPtr)
         //EbObjectIncLiveCount(pictureControlSetPtr->ParentPcsPtr->pPcsWrapperPtr, 1);
 
         // Segment-loop
-        while (AssignEncDecSegments(segmentsPtr, &segmentIndex, encDecTasksPtr, contextPtr->encDecFeedbackFifoPtr) == EB_TRUE) {
+        while (AssignEncDecSegments(segmentsPtr, &segmentIndex, encDecTasksPtr, contextPtr->encDecFeedbackFifoPtr, start_sTime, start_uTime) == EB_TRUE) {
             lcuRowTileIdx = -1;
             lcuRowIndexStart = 0;
             lcuRowIndexCount = 0;
@@ -3048,10 +3056,12 @@ void* EncDecKernel(void *inputPtr)
                 encDecResultsPtr->completedLcuRowCount = lcuRowIndexCount;
                 encDecResultsPtr->tileIndex = lcuRowTileIdx;
 
-                eb_add_time_entry(EB_ENCDEC, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, encDecResultsPtr->completedLcuRowIndexStart);
-                printf("Post tile %d, line [%d, %d) to entropy\n", lcuRowTileIdx, lcuRowIndexStart, lcuRowIndexStart + lcuRowIndexCount);
+                // printf("Post tile %d, line [%d, %d) to entropy\n", lcuRowTileIdx, lcuRowIndexStart, lcuRowIndexStart + lcuRowIndexCount);
                 // Post EncDec Results
                 EbPostFullObject(encDecResultsWrapperPtr);
+                eb_add_time_entry(EB_ENCDEC, (EbTaskType)encDecTasksPtr->inputType, EB_TASK0, pictureControlSetPtr->pictureNumber,
+                                encDecResultsPtr->completedLcuRowIndexStart, lcuRowTileIdx,
+                                start_sTime, start_uTime);
             }
 
         }
@@ -3188,9 +3198,10 @@ void* EncDecKernel(void *inputPtr)
                 pictureDemuxResultsPtr->pictureNumber = pictureControlSetPtr->pictureNumber;
                 pictureDemuxResultsPtr->pictureType = EB_PIC_REFERENCE;
 
-                eb_add_time_entry(EB_ENCDEC, EB_FINISH, (enum EbTaskType)EB_PIC_REFERENCE, pictureControlSetPtr->pictureNumber, -1);
                 // Post Reference Picture
                 EbPostFullObject(pictureDemuxResultsWrapperPtr);
+                eb_add_time_entry(EB_ENCDEC, (EbTaskType)encDecTasksPtr->inputType, (EbTaskType)EB_PIC_REFERENCE, pictureControlSetPtr->pictureNumber, -1, -1,
+                                start_sTime, start_uTime);
 #if LATENCY_PROFILE
                     double latency = 0.0;
                     EB_U64 finishTimeSeconds = 0;

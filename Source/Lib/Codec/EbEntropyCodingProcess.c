@@ -348,6 +348,10 @@ void* EntropyCodingKernel(void *inputPtr)
     EB_U32                                   xLcuStart;
     EB_U32                                   yLcuStart;
 
+	// Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
+
     for(;;) {
 
         // Get Mode Decision Results
@@ -355,11 +359,11 @@ void* EntropyCodingKernel(void *inputPtr)
             contextPtr->encDecInputFifoPtr,
             &encDecResultsWrapperPtr);
         EB_CHECK_END_OBJ(encDecResultsWrapperPtr);
+        EbHevcStartTime(&start_sTime, &start_uTime);
         encDecResultsPtr       = (EncDecResults_t*) encDecResultsWrapperPtr->objectPtr;
         pictureControlSetPtr   = (PictureControlSet_t*) encDecResultsPtr->pictureControlSetWrapperPtr->objectPtr;
         sequenceControlSetPtr  = (SequenceControlSet_t*) pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
         tileIdx                = encDecResultsPtr->tileIndex;
-        eb_add_time_entry(EB_ENTROPY, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, encDecResultsPtr->completedLcuRowIndexStart);
         tileRowIdx             = tileIdx / pictureControlSetPtr->ParentPcsPtr->tileColumnCount;
         tileColIdx             = tileIdx % pictureControlSetPtr->ParentPcsPtr->tileColumnCount;
         lastLcuFlagInSlice     = EB_FALSE;
@@ -465,9 +469,10 @@ void* EntropyCodingKernel(void *inputPtr)
                     rateControlTaskPtr->pictureControlSetWrapperPtr = 0;
                     rateControlTaskPtr->segmentIndex = ~0u;
 
-                    eb_add_time_entry(EB_ENTROPY, EB_FINISH, (EbTaskType)RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, yLcuIndex);
                     // Post EncDec Results
                     EbPostFullObject(rateControlTaskWrapperPtr);
+                    eb_add_time_entry(EB_ENTROPY, EB_TASK0, (EbTaskType)RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, yLcuIndex, tileIdx,
+                                    start_sTime, start_uTime);
                 }
 
 				EbBlockOnMutex(pictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCodingMutex);
@@ -511,7 +516,8 @@ void* EntropyCodingKernel(void *inputPtr)
                             entropyCodingResultsPtr = (EntropyCodingResults_t*)entropyCodingResultsWrapperPtr->objectPtr;
                             entropyCodingResultsPtr->pictureControlSetWrapperPtr = encDecResultsPtr->pictureControlSetWrapperPtr;
 
-                            eb_add_time_entry(EB_ENTROPY, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
+                            eb_add_time_entry(EB_ENTROPY, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
+                                    start_sTime, start_uTime);
                             //SVT_LOG("[%lld]: Entropy post result, POC %d\n", EbGetSysTimeMs(), pictureControlSetPtr->pictureNumber);
                             // Post EntropyCoding Results
                             EbPostFullObject(entropyCodingResultsWrapperPtr);

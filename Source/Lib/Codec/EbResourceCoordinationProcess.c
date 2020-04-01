@@ -636,7 +636,8 @@ void* ResourceCoordinationKernel(void *inputPtr)
             } else
                 outputResultsPtr->pictureControlSetWrapperPtr = prevPictureControlSetWrapperPtr;
 
-            eb_add_time_entry(EB_RESOURCE, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber - 1, -1);
+            eb_add_time_entry(EB_RESOURCE, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber - 1, -1, -1,
+                                pictureControlSetPtr->startTimeSeconds, pictureControlSetPtr->startTimeuSeconds);
             // Post the finished Results Object
             EbPostFullObject(outputWrapperPtr);
         }

@@ -649,6 +649,9 @@ void* MotionEstimationKernel(void *inputPtr)
 
 	MdRateEstimationContext_t   *mdRateEstimationArray;
 
+    // Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
 
 	for (;;) {
 
@@ -659,9 +662,9 @@ void* MotionEstimationKernel(void *inputPtr)
 			&inputResultsWrapperPtr);
         EB_CHECK_END_OBJ(inputResultsWrapperPtr);
 
+        EbHevcStartTime(&start_sTime, &start_uTime);
 		inputResultsPtr = (PictureDecisionResults_t*)inputResultsWrapperPtr->objectPtr;
 		pictureControlSetPtr = (PictureParentControlSet_t*)inputResultsPtr->pictureControlSetWrapperPtr->objectPtr;
-		eb_add_time_entry(EB_ME, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, segmentIndex);
         sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
 		paReferenceObject = (EbPaReferenceObject_t*)pictureControlSetPtr->paReferencePictureWrapperPtr->objectPtr;
 		quarterDecimatedPicturePtr = (EbPictureBufferDesc_t*)paReferenceObject->quarterDecimatedPicturePtr;
@@ -970,9 +973,10 @@ void* MotionEstimationKernel(void *inputPtr)
 		// Release the Input Results
 		EbReleaseObject(inputResultsWrapperPtr);
 
-        eb_add_time_entry(EB_ME, EB_FINISH, EB_TASK0, pictureControlSetPtr->pictureNumber, segmentIndex);
 		// Post the Full Results Object
 		EbPostFullObject(outputResultsWrapperPtr);
+        eb_add_time_entry(EB_ME, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, segmentIndex, -1,
+                            start_sTime, start_uTime);
 	}
 	return EB_NULL;
 }

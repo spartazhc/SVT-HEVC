@@ -1404,6 +1404,10 @@ void* SourceBasedOperationsKernel(void *inputPtr)
     EbObjectWrapper_t               *outputResultsWrapperPtr;
 	PictureDemuxResults_t       	*outputResultsPtr;
 
+    // Profile
+	EB_U64							start_sTime;
+	EB_U64							start_uTime;
+
     for (;;) {
 
         // Get Input Full Object
@@ -1412,10 +1416,10 @@ void* SourceBasedOperationsKernel(void *inputPtr)
             &inputResultsWrapperPtr);
         EB_CHECK_END_OBJ(inputResultsWrapperPtr);
 
+        EbHevcStartTime(&start_sTime, &start_uTime);
 		inputResultsPtr = (InitialRateControlResults_t*)inputResultsWrapperPtr->objectPtr;
         pictureControlSetPtr = (PictureParentControlSet_t*)inputResultsPtr->pictureControlSetWrapperPtr->objectPtr;
 		sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
-        eb_add_time_entry(EB_SBO, EB_START, EB_TASK0, pictureControlSetPtr->pictureNumber, -1);
 #if DEADLOCK_DEBUG
         SVT_LOG("POC %lld SRC IN \n", pictureControlSetPtr->pictureNumber);
 #endif
@@ -1700,10 +1704,10 @@ void* SourceBasedOperationsKernel(void *inputPtr)
                 latency);
 #endif
 
-        eb_add_time_entry(EB_SBO, EB_FINISH, (EbTaskType)EB_PIC_INPUT, pictureControlSetPtr->pictureNumber, -1);
         // Post the Full Results Object
         EbPostFullObject(outputResultsWrapperPtr);
-
+        eb_add_time_entry(EB_SBO, EB_TASK0, (EbTaskType)EB_PIC_INPUT, pictureControlSetPtr->pictureNumber, -1, -1,
+                            start_sTime, start_uTime);
     }
     return EB_NULL;
 }
