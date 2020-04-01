@@ -2823,7 +2823,7 @@ void* RateControlKernel(void *inputPtr)
             break;
 
         case RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT:
-            eb_add_time_entry(EB_RC, EB_START_NO_FINISH, (EbTaskType)taskType, rateControlTasksPtr->pictureNumber, rateControlTasksPtr->segmentIndex);
+            eb_add_time_entry(EB_RC, EB_START_NO_FINISH, (EbTaskType)taskType, rateControlTasksPtr->pictureNumber, rateControlTasksPtr->rowNumber);
             // Extract bits-per-lcu-row
 
             // Release Rate Control Tasks
