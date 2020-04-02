@@ -546,7 +546,7 @@ void eb_add_time_entry(EbProcessType proc_type, EbTaskType in_type, EbTaskType o
     item.start_sTime = start_sTime;
     item.start_uTime = start_uTime;
     EbHevcStartTime(&item.end_sTime, &item.end_uTime);
-    if (for_each_time_entry(hash_ti(item.start_sTime), add_time_entry, &item))
+    if (for_each_time_entry(hash_ti(item.start_uTime), add_time_entry, &item))
         return;
     if (g_add_time_entry_warning) {
         fprintf(stderr, "SVT: can't add time entry.\r\n");

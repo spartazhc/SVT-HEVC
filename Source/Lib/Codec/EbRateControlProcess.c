@@ -2809,15 +2809,10 @@ void* RateControlKernel(void *inputPtr)
 
             totalNumberOfFbFrames++;
 
-<<<<<<< HEAD
-            // Release the SequenceControlSet
-            EbReleaseObject(parentPictureControlSetPtr->sequenceControlSetWrapperPtr);
-=======
             eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_NOTASK, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
 			// Release the SequenceControlSet
 			EbReleaseObject(parentPictureControlSetPtr->sequenceControlSetWrapperPtr);
->>>>>>> c880b02... change profile output style to improve its readability
             // Release the input buffer
             EbReleaseObject(parentPictureControlSetPtr->ebInputWrapperPtr);
             // Release the PA Reference Picture
@@ -2825,16 +2820,12 @@ void* RateControlKernel(void *inputPtr)
             // Release the ParentPictureControlSet
             EbReleaseObject(rateControlTasksPtr->pictureControlSetWrapperPtr);
 
-<<<<<<< HEAD
-            // Release Rate Control Tasks
-=======
 			// Release Rate Control Tasks
->>>>>>> 8e909bd... add latency profile(new)
             EbReleaseObject(rateControlTasksWrapperPtr);
             break;
 
         case RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT:
-            eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_NOTASK, pictureControlSetPtr->pictureNumber, -1, -1,
+            eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_NOTASK, rateControlTasksPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
             // Extract bits-per-lcu-row
 

@@ -826,7 +826,7 @@ void* PacketizationKernel(void *inputPtr)
             EB_U32  totalBytes = 0;
             EbHevcFinishTime((uint64_t*)&finishTimeSeconds, (uint64_t*)&finishTimeuSeconds);
 
-            eb_add_time_entry(EB_PACKET, EB_TASK0, EB_TASK2, pictureControlSetPtr->pictureNumber, -1, -1,
+            eb_add_time_entry(EB_PACKET, EB_TASK0, EB_TASK0, queueEntryPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
             EbHevcComputeOverallElapsedTimeMs(
                 queueEntryPtr->startTimeSeconds,
