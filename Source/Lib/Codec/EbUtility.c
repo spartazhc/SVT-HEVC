@@ -6,6 +6,8 @@
 #include <time.h>
 #ifdef _WIN32
 #include <windows.h>
+static LARGE_INTEGER freq, start;
+LARGE_INTEGER count;
 #else
 #include <sys/time.h>
 #endif
@@ -382,14 +384,12 @@ const MiniGopStats_t* GetMiniGopStats(const EB_U32 miniGopIndex) {
 void EbHevcStartTime(EB_U64 *Startseconds, EB_U64 *Startuseconds)
 {
 #ifdef _WIN32
-    static LARGE_INTEGER freq, start;
-    LARGE_INTEGER count;
     if (!QueryPerformanceCounter(&count)) {}
     if (!freq.QuadPart) { // one time initialization
         if (!QueryPerformanceFrequency(&freq)) {}
         start = count;
     }
-    *Startseconds = (count.QuadPart / (freq.QuadPart));
+    *Startseconds = ((count.QuadPart - start.QuadPart) / (freq.QuadPart));
     *Startuseconds = ((count.QuadPart - start.QuadPart) / (freq.QuadPart / 1000000)) % 1000000;
 #else
     struct timeval start;
@@ -402,14 +402,12 @@ void EbHevcStartTime(EB_U64 *Startseconds, EB_U64 *Startuseconds)
 void EbHevcFinishTime(EB_U64 *Finishseconds, EB_U64 *Finishuseconds)
 {
 #ifdef _WIN32
-    static LARGE_INTEGER freq, start;
-    LARGE_INTEGER count;
     if (!QueryPerformanceCounter(&count)) {}
     if (!freq.QuadPart) { // one time initialization
         if (!QueryPerformanceFrequency(&freq)) {}
         start = count;
     }
-    *Finishseconds = (count.QuadPart / (freq.QuadPart));
+    *Finishseconds = ((count.QuadPart - start.QuadPart) / (freq.QuadPart));
     *Finishuseconds = ((count.QuadPart - start.QuadPart) / (freq.QuadPart / 1000000)) % 1000000;
 #else
     struct timeval finish;
@@ -444,6 +442,6 @@ void EbHevcComputeOverallElapsedTimeRealMs(EB_U64 Startseconds, EB_U64 Startusec
     long seconds, useconds;
     seconds = Finishseconds - Startseconds;
     useconds = Finishuseconds - Startuseconds;
-    *duration = (double)((seconds) * 1000 + useconds / 1000.0);
+    *duration = 1000.0 * (double)(seconds) + (double)(useconds) / 1000.0;
     //SVT_LOG("\nElapsed time: %3.3ld seconds\n", mtime/1000);
 }
