@@ -829,7 +829,7 @@ void* PacketizationKernel(void *inputPtr)
             EB_U32  totalBytes = 0;
             EbHevcFinishTime((uint64_t*)&finishTimeSeconds, (uint64_t*)&finishTimeuSeconds);
 
-            eb_add_time_entry(EB_PACKET, EB_TASK0, EB_TASK2, pictureControlSetPtr->pictureNumber, -1, -1,
+            eb_add_time_entry(EB_PACKET, EB_TASK0, EB_TASK0, queueEntryPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
             EbHevcComputeOverallElapsedTimeMs(
                 queueEntryPtr->startTimeSeconds,
@@ -974,8 +974,6 @@ void* PacketizationKernel(void *inputPtr)
                 EbReleaseMutex(encodeContextPtr->bufferFillMutex);
             }
             EbPostFullObject(outputStreamWrapperPtr);
-            eb_add_time_entry(EB_PACKET, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
-                            start_sTime, start_uTime);
             // Reset the Reorder Queue Entry
             queueEntryPtr->pictureNumber    += PACKETIZATION_REORDER_QUEUE_MAX_DEPTH;
             queueEntryPtr->outputStreamWrapperPtr = (EbObjectWrapper_t *)EB_NULL;

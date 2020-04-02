@@ -4,12 +4,13 @@
 */
 
 #include <time.h>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/time.h>
 #endif
 #include "EbUtility.h"
 #include "EbDefinitions.h"
-#include <windows.h>
 
 /*****************************************
  * Z-Order
