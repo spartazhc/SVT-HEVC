@@ -389,8 +389,8 @@ void EbHevcStartTime(EB_U64 *Startseconds, EB_U64 *Startuseconds)
         if (!QueryPerformanceFrequency(&freq)) {}
         start = count;
     }
-    *Startseconds = ((count.QuadPart - start.QuadPart) / (freq.QuadPart));
-    *Startuseconds = ((count.QuadPart - start.QuadPart) / (freq.QuadPart / 1000000)) % 1000000;
+    *Startseconds = (count.QuadPart - start.QuadPart) / freq.QuadPart + 1;
+    *Startuseconds = ((count.QuadPart - start.QuadPart) * 1000000 / (EB_U64)freq.QuadPart + 1) % 1000000;
 #else
     struct timeval start;
     gettimeofday(&start, NULL);
@@ -407,8 +407,8 @@ void EbHevcFinishTime(EB_U64 *Finishseconds, EB_U64 *Finishuseconds)
         if (!QueryPerformanceFrequency(&freq)) {}
         start = count;
     }
-    *Finishseconds = ((count.QuadPart - start.QuadPart) / (freq.QuadPart));
-    *Finishuseconds = ((count.QuadPart - start.QuadPart) / (freq.QuadPart / 1000000)) % 1000000;
+    *Finishseconds = (count.QuadPart - start.QuadPart) / freq.QuadPart + 1;
+    *Finishuseconds = ((count.QuadPart - start.QuadPart) * 1000000 / (EB_U64)freq.QuadPart + 1) % 1000000;
 #else
     struct timeval finish;
     gettimeofday(&finish, NULL);
