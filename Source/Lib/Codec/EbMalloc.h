@@ -52,7 +52,7 @@ typedef enum EbProcessType
 
 
 void eb_add_time_entry(EbProcessType proc_type, EbTaskType in_type, EbTaskType out_type,
-                        uint32_t pic_num, int8_t seg_idx, int8_t tile_idx,
+                        uint32_t pic_num, int16_t seg_idx, int8_t tile_idx,
                         uint64_t start_sTime, uint64_t start_uTime);
 
 #ifdef DEBUG_MEMORY_USAGE

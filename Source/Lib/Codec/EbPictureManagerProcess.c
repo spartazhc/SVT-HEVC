@@ -561,8 +561,10 @@ void* PictureManagerKernel(void *inputPtr)
             //keep the release of SCS here because we still need the encodeContext strucutre here
             // Release the Reference's SequenceControlSet
             EbReleaseObject(inputPictureDemuxPtr->sequenceControlSetWrapperPtr);
+#ifdef TIMESTAMP_WITH_FEEDBACK
             eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, EB_NOTASK, inputPictureDemuxPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
             break;
         case EB_PIC_FEEDBACK:
 
@@ -584,8 +586,10 @@ void* PictureManagerKernel(void *inputPtr)
             //keep the relase of SCS here because we still need the encodeContext strucutre here
             // Release the Reference's SequenceControlSet
             EbReleaseObject(inputPictureDemuxPtr->sequenceControlSetWrapperPtr);
+#ifdef TIMESTAMP_WITH_FEEDBACK
             eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, EB_NOTASK, inputPictureDemuxPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
             break;
         default:
 

@@ -446,7 +446,7 @@ EB_U32 hash_ti(EB_U64 p)
 
 typedef struct TimeEntry{
     EB_U32 pic_num;
-    EB_S8 seg_idx;
+    EB_S16 seg_idx;
     EB_S8 tile_idx;
     EbTaskType in_type;
     EbTaskType out_type;
@@ -532,7 +532,7 @@ static const char* process_name(EbProcessType type)
 
 #endif // DEBUG_TIMESTAMP
 void eb_add_time_entry(EbProcessType proc_type, EbTaskType in_type, EbTaskType out_type,
-                        EB_U32 pic_num, EB_S8 seg_idx, EB_S8 tile_idx,
+                        EB_U32 pic_num, EB_S16 seg_idx, EB_S8 tile_idx,
                         EB_U64 start_sTime, EB_U64 start_uTime)
 {
 #ifdef DEBUG_TIMESTAMP

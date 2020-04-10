@@ -1667,10 +1667,12 @@ static EB_BOOL AssignEncDecSegments(
             feedbackTaskPtr->tileGroupIndex = taskPtr->tileGroupIndex;
 
             EbPostFullObject(wrapperPtr);
+#ifdef TIMESTAMP_WITH_FEEDBACK
             eb_add_time_entry(EB_ENCDEC, (EbTaskType)taskPtr->inputType, (EbTaskType)ENCDEC_TASKS_ENCDEC_INPUT,
                             ((PictureControlSet_t*)taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
                             feedbackRowIndex, taskPtr->tileGroupIndex,
                             start_sTime, start_uTime);
+#endif
         }
 
         break;
@@ -3072,10 +3074,12 @@ void* EncDecKernel(void *inputPtr)
         pictureControlSetPtr->intraCodedArea += (EB_U32)contextPtr->totIntraCodedArea;
         pictureControlSetPtr->encDecCodedLcuCount += (EB_U32)contextPtr->codedLcuCount;
         lastLcuFlag = (pictureControlSetPtr->lcuTotalCount == pictureControlSetPtr->encDecCodedLcuCount);
-        //printf("[%p]: Tile %d, coded lcu count %d, total coded lcu count %d, lastLcuFlag is %d\n",
-        //        contextPtr, encDecTasksPtr->tileIndex,
+        // printf("[%p]: Tile %d, coded lcu count %d, total coded lcu count %d, lastLcuFlag is %d\n",
+        //        contextPtr, encDecTasksPtr->tileGroupIndex,
         //        contextPtr->codedLcuCount,
         //        pictureControlSetPtr->encDecCodedLcuCount, lastLcuFlag);
+        eb_add_time_entry(EB_ENCDEC, EB_NOTASK, EB_NOTASK, pictureControlSetPtr->pictureNumber, pictureControlSetPtr->encDecCodedLcuCount, -1,
+                            start_sTime, start_uTime);
         EbReleaseMutex(pictureControlSetPtr->intraMutex);
 
         if (lastLcuFlag) {
@@ -3207,8 +3211,10 @@ void* EncDecKernel(void *inputPtr)
 
                 // Post Reference Picture
                 EbPostFullObject(pictureDemuxResultsWrapperPtr);
+#ifdef TIMESTAMP_WITH_FEEDBACK
                 eb_add_time_entry(EB_ENCDEC, (EbTaskType)encDecTasksPtr->inputType, (EbTaskType)EB_PIC_REFERENCE, pictureControlSetPtr->pictureNumber, -1, -1,
                                 start_sTime, start_uTime);
+#endif
 #if LATENCY_PROFILE
                     double latency = 0.0;
                     EB_U64 finishTimeSeconds = 0;

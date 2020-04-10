@@ -11,6 +11,8 @@
 extern "C" {
 #endif
 
+// #define TIMESTAMP_WITH_FEEDBACK
+
 //#define BENCHMARK 0
 #define LATENCY_PROFILE 0
 //#define DEBUG_LIFE_CYCLE 0

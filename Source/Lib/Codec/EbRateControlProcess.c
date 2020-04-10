@@ -2809,8 +2809,10 @@ void* RateControlKernel(void *inputPtr)
 
             totalNumberOfFbFrames++;
 
+#ifdef TIMESTAMP_WITH_FEEDBACK
             eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_NOTASK, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 			// Release the SequenceControlSet
 			EbReleaseObject(parentPictureControlSetPtr->sequenceControlSetWrapperPtr);
             // Release the input buffer
@@ -2825,8 +2827,10 @@ void* RateControlKernel(void *inputPtr)
             break;
 
         case RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT:
+#ifdef TIMESTAMP_WITH_FEEDBACK
             eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_NOTASK, rateControlTasksPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
             // Extract bits-per-lcu-row
 
             // Release Rate Control Tasks
