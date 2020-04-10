@@ -13,6 +13,7 @@ extern "C" {
 
 #define PAREF_OUT 1 // Disconnect pa ref  from input for both single/multi core
 #define OUT_ALLOC 1 // Output bitsream allocation at run time for both single/multi core
+// #define TIMESTAMP_WITH_FEEDBACK
 
 //#define BENCHMARK 0
 #define LATENCY_PROFILE 0

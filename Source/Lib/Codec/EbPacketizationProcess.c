@@ -793,14 +793,18 @@ void* PacketizationKernel(void *inputPtr)
 
         // Post Rate Control Taks
         EbPostFullObject(rateControlTasksWrapperPtr);
+#ifdef TIMESTAMP_WITH_FEEDBACK
         eb_add_time_entry(EB_PACKET, EB_TASK0, (EbTaskType)RC_PACKETIZATION_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 
         if (sequenceControlSetPtr->staticConfig.rateControlMode) {
             // Post the Full Results Object
             EbPostFullObject(pictureManagerResultsWrapperPtr);
+#ifdef TIMESTAMP_WITH_FEEDBACK
             eb_add_time_entry(EB_PACKET, EB_TASK0, (EbTaskType)EB_PIC_FEEDBACK, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
         }
         //Release the Parent PCS then the Child PCS
         EbReleaseObject(entropyCodingResultsPtr->pictureControlSetWrapperPtr);//Child

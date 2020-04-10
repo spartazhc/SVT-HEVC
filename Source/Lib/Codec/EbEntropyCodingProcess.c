@@ -359,7 +359,7 @@ void* EntropyCodingKernel(void *inputPtr)
             contextPtr->encDecInputFifoPtr,
             &encDecResultsWrapperPtr);
         EB_CHECK_END_OBJ(encDecResultsWrapperPtr);
-        EbHevcStartTime(&start_sTime, &start_uTime);
+
         encDecResultsPtr       = (EncDecResults_t*) encDecResultsWrapperPtr->objectPtr;
         pictureControlSetPtr   = (PictureControlSet_t*) encDecResultsPtr->pictureControlSetWrapperPtr->objectPtr;
         sequenceControlSetPtr  = (SequenceControlSet_t*) pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
@@ -396,7 +396,7 @@ void* EntropyCodingKernel(void *inputPtr)
             while(UpdateEntropyCodingRows(pictureControlSetPtr, &yLcuIndex, encDecResultsPtr->completedLcuRowCount, tileIdx, &initialProcessCall) == EB_TRUE)
             {
                 EB_U32 rowTotalBits = 0;
-
+                EbHevcStartTime(&start_sTime, &start_uTime);
                 if(yLcuIndex == 0) {
                     EbBlockOnMutex(pictureControlSetPtr->entropyCodingPicMutex);
                     if (pictureControlSetPtr->entropyCodingPicResetFlag) {
@@ -471,8 +471,10 @@ void* EntropyCodingKernel(void *inputPtr)
 
                     // Post EncDec Results
                     EbPostFullObject(rateControlTaskWrapperPtr);
+// #ifdef TIMESTAMP_WITH_FEEDBACK
                     eb_add_time_entry(EB_ENTROPY, EB_TASK0, (EbTaskType)RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, yLcuIndex, tileIdx,
                                     start_sTime, start_uTime);
+// #endif
                 }
 
 				EbBlockOnMutex(pictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCodingMutex);
