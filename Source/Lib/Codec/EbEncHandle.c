@@ -1760,7 +1760,7 @@ void LoadDefaultBufferConfigurationSettings(
 
     // Jing: TODO:
     // Tune it later, different layer may have different Tile Group
-    EB_U16 tileGroupColCount = 1;//1 col will have better perf for segments
+    EB_U16 tileGroupColCount = tileColCount;//1 col will have better perf for segments
     EB_U16 tileGroupRowCount = tileRowCount;// > 1 ? (tileRowCount / 2) : 1;
 
     // Tile group
@@ -1813,6 +1813,13 @@ void LoadDefaultBufferConfigurationSettings(
                                                     totalThreadCount - sequenceControlSetPtr->totalProcessInitCount;
 
     SVT_LOG("Number of logical cores available: %u\nNumber of PPCS %u\n", coreCount, inputPic);
+    SVT_LOG("totalThreadCount = %d, threadUnit = %d\n", totalThreadCount, threadUnit);
+    SVT_LOG("PA  ProcessCnt = %d\n", sequenceControlSetPtr->pictureAnalysisProcessInitCount);
+    SVT_LOG("ME  ProcessCnt = %d\n", sequenceControlSetPtr->motionEstimationProcessInitCount);
+    SVT_LOG("SBO ProcessCnt = %d\n", sequenceControlSetPtr->sourceBasedOperationsProcessInitCount);
+    SVT_LOG("MDC ProcessCnt = %d\n", sequenceControlSetPtr->modeDecisionConfigurationProcessInitCount);
+    SVT_LOG("ED  ProcessCnt = %d\n", sequenceControlSetPtr->encDecProcessInitCount);
+    SVT_LOG("ENT ProcessCnt = %d\n", sequenceControlSetPtr->entropyCodingProcessInitCount);
 
     return;
 
