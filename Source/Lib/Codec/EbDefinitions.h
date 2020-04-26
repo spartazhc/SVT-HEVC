@@ -12,6 +12,7 @@ extern "C" {
 #endif
 
 // #define TIMESTAMP_WITH_FEEDBACK
+#define ENDLESS_STREAM
 
 //#define BENCHMARK 0
 #define LATENCY_PROFILE 0

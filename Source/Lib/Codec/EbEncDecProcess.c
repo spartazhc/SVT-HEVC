@@ -14,6 +14,7 @@
 #include "EbErrorCodes.h"
 #include "EbErrorHandling.h"
 
+// #define SEG_TRACE
 
 void PrecomputeCabacCost(CabacCost_t            *CabacCostPtr,
     CabacEncodeContext_t   *cabacEncodeCtxPtr);
@@ -1558,12 +1559,19 @@ static EB_BOOL AssignEncDecSegments(
 
     EB_U32 selfAssigned = EB_FALSE;
 
-    //static FILE *trace = 0;
-    //
-    //if(trace == 0) {
-    //    trace = fopen("seg-trace.txt","w");
-    //}
+#ifdef SEG_TRACE
+    static FILE *trace = 0;
+    static uint64_t start_s;
+    static uint64_t start_us;
+    uint64_t end_s;
+    uint64_t end_us;
+    double dur;
 
+    if(trace == 0) {
+       trace = fopen("/tmp/hevc-seg-trace.txt","w");
+       EbHevcStartTime(&start_s, &start_us);
+    }
+#endif
 
     switch (taskPtr->inputType) {
 
@@ -1578,9 +1586,15 @@ static EB_BOOL AssignEncDecSegments(
         ++segmentPtr->rowArray[0].currentSegIndex;
         continueProcessingFlag = EB_TRUE;
 
-        //fprintf(trace, "Start  Pic: %u Seg: %u\n",
-        //    (unsigned) ((PictureControlSet_t*) taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
-        //    *segmentInOutIndex);
+#ifdef SEG_TRACE
+        EbHevcFinishTime(&end_s, &end_us);
+        EbHevcComputeOverallElapsedTimeRealMs(start_s, start_us, end_s, end_us, &dur);
+        fprintf(trace, "Start  Pic[0  ]: %u Tile: %u, Seg: %d, Dur: %.2f\n",
+           (unsigned) ((PictureControlSet_t*) taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
+           taskPtr->tileGroupIndex,
+           *segmentInOutIndex,
+           dur);
+#endif
 
         break;
 
@@ -1595,9 +1609,15 @@ static EB_BOOL AssignEncDecSegments(
         ++segmentPtr->rowArray[taskPtr->encDecSegmentRow].currentSegIndex;
         continueProcessingFlag = EB_TRUE;
 
-        //fprintf(trace, "Start  Pic: %u Seg: %u\n",
-        //    (unsigned) ((PictureControlSet_t*) taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
-        //    *segmentInOutIndex);
+#ifdef SEG_TRACE
+        EbHevcFinishTime(&end_s, &end_us);
+        EbHevcComputeOverallElapsedTimeRealMs(start_s, start_us, end_s, end_us, &dur);
+        fprintf(trace, "Start  Pic[1  ]: %u Tile: %u, Seg: %d, Dur: %.2f\n",
+           (unsigned) ((PictureControlSet_t*) taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
+           taskPtr->tileGroupIndex,
+           *segmentInOutIndex,
+            dur);
+#endif
 
         break;
 
@@ -1623,9 +1643,15 @@ static EB_BOOL AssignEncDecSegments(
                 selfAssigned = EB_TRUE;
                 continueProcessingFlag = EB_TRUE;
 
-                //fprintf(trace, "Start  Pic: %u Seg: %u\n",
-                //    (unsigned) ((PictureControlSet_t*) taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
-                //    *segmentInOutIndex);
+#ifdef SEG_TRACE
+                EbHevcFinishTime(&end_s, &end_us);
+                EbHevcComputeOverallElapsedTimeRealMs(start_s, start_us, end_s, end_us, &dur);
+                fprintf(trace, "Start  Pic[2-r]: %u Tile: %u, Seg: %d, Dur: %.2f\n",
+                   (unsigned) ((PictureControlSet_t*) taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
+                   taskPtr->tileGroupIndex,
+                   *segmentInOutIndex,
+                    dur);
+#endif
             }
 
             EbReleaseMutex(segmentPtr->rowArray[rowSegmentIndex].assignmentMutex);
@@ -1648,9 +1674,15 @@ static EB_BOOL AssignEncDecSegments(
                     selfAssigned = EB_TRUE;
                     continueProcessingFlag = EB_TRUE;
 
-                    //fprintf(trace, "Start  Pic: %u Seg: %u\n",
-                    //    (unsigned) ((PictureControlSet_t*) taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
-                    //    *segmentInOutIndex);
+#ifdef SEG_TRACE
+                    EbHevcFinishTime(&end_s, &end_us);
+                    EbHevcComputeOverallElapsedTimeRealMs(start_s, start_us, end_s, end_us, &dur);
+                    fprintf(trace, "Start  Pic[2-b]: %u Tile: %u, Seg: %d, Dur: %.2f\n",
+                       (unsigned) ((PictureControlSet_t*) taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
+                       taskPtr->tileGroupIndex,
+                       *segmentInOutIndex,
+                        dur);
+#endif
                 }
             }
             EbReleaseMutex(segmentPtr->rowArray[rowSegmentIndex + 1].assignmentMutex);

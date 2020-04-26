@@ -10,6 +10,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#ifdef _WIN32
+#include <Windows.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "EbAppContext.h"
 #include "EbAppConfig.h"
@@ -1294,6 +1299,11 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(EbConfig_t *config, EbAppContext_t *appC
 // zhuchen RCP
 #if (0) //0
         // Send the picture
+#ifdef _WIN32
+        Sleep(30);
+#else
+        usleep(30*1000);
+#endif
         EbH265EncSendPicture(componentHandle, headerPtr);
 
         if ((config->processedFrameCount == (uint64_t)config->framesToBeEncoded) || config->stopEncoder) {
