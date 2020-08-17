@@ -1957,6 +1957,12 @@ void EbHevcHmeOneQuadrantLevel0(
 			    searchAreaHeight
 			    );
 #else
+//zhuchen
+#if 0
+            searchAreaWidth = searchAreaWidth / 2;
+            searchAreaHeight = searchAreaHeight / 2;
+#endif
+
             SadLoopKernel_AVX2_HmeL0_INTRIN(
                 &contextPtr->sixteenthLcuBuffer[0],
                 contextPtr->sixteenthLcuBufferStride,
