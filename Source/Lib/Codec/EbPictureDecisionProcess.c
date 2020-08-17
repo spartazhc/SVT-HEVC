@@ -27,7 +27,12 @@
 #define POC_CIRCULAR_ADD(base, offset/*, bits*/)             (/*(((EB_S32) (base)) + ((EB_S32) (offset)) > ((EB_S32) (1 << (bits))))   ? ((base) + (offset) - (1 << (bits))) : \
                                                              (((EB_S32) (base)) + ((EB_S32) (offset)) < 0)                           ? ((base) + (offset) + (1 << (bits))) : \
                                                                                                                                        */((base) + (offset)))
+ // zhuchen PD window
+#if (0) //0
 #define FUTURE_WINDOW_WIDTH                 4
+#else
+#define FUTURE_WINDOW_WIDTH                 0
+#endif
 #define FLASH_TH                            5
 #define FADE_TH                             3
 #define SCENE_TH                            3000
@@ -596,7 +601,12 @@ void* PictureDecisionKernel(void *inputPtr)
 	EB_BOOL                          windowAvail,framePasseThru;
     EB_U32                           windowIndex;
     EB_U32                           entryIndex;
+// zhuchen
+#if (0)
     PictureParentControlSet_t        *ParentPcsWindow[FUTURE_WINDOW_WIDTH+2];
+#else
+    PictureParentControlSet_t        *ParentPcsWindow[1 + 2];
+#endif
 
     // Debug
     EB_U64                           loopCount = 0;
@@ -676,6 +686,13 @@ void* PictureDecisionKernel(void *inputPtr)
                     }
                 }
             }
+
+// zhuchen
+#if(1)
+            //use current frame as a fake future frame, and do not detect flash
+            ParentPcsWindow[2] = (PictureParentControlSet_t*)encodeContextPtr->pictureDecisionReorderQueue[encodeContextPtr->pictureDecisionReorderQueueHeadIndex]->parentPcsWrapperPtr->objectPtr;
+#endif
+
             pictureControlSetPtr                        = (PictureParentControlSet_t*)  queueEntryPtr->parentPcsWrapperPtr->objectPtr;
 
             if(pictureControlSetPtr->idrFlag == EB_TRUE)
