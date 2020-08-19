@@ -1291,6 +1291,8 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(EbConfig_t *config, EbAppContext_t *appC
                 config,
                 headerPtr);
 
+// zhuchen RCP
+#if (0) //0
         // Send the picture
         EbH265EncSendPicture(componentHandle, headerPtr);
 
@@ -1307,6 +1309,15 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(EbConfig_t *config, EbAppContext_t *appC
             EbH265EncSendPicture(componentHandle, headerPtr);
 
         }
+#else
+        if ((config->processedFrameCount == (uint64_t)config->framesToBeEncoded) || config->stopEncoder)
+            headerPtr->nFlags = EB_BUFFERFLAG_EOS;
+
+        // Send the picture
+        EbH265EncSendPicture(componentHandle, headerPtr);
+#endif
+
+
 
         return_value = (headerPtr->nFlags == EB_BUFFERFLAG_EOS) ? APP_ExitConditionFinished : return_value;
 

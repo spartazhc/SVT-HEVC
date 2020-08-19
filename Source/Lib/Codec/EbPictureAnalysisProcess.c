@@ -4272,8 +4272,9 @@ void* PictureAnalysisKernel(void *inputPtr)
 		SetPictureParametersForStatisticsGathering(
 			sequenceControlSetPtr);
 
-
-		// Pre processing operations performed on the input picture
+// zhuchen Preprocessing
+#if (0) //0
+        // Pre processing operations performed on the input picture
         PicturePreProcessingOperations(
             pictureControlSetPtr,
             contextPtr,
@@ -4282,6 +4283,7 @@ void* PictureAnalysisKernel(void *inputPtr)
             sixteenthDecimatedPicturePtr,
             lcuTotalCount,
             pictureWidthInLcu);
+#endif
 
         if (inputPicturePtr->colorFormat >= EB_YUV422) {
             // Jing: Do the conversion of 422/444=>420 here since it's multi-threaded kernel
@@ -4298,23 +4300,29 @@ void* PictureAnalysisKernel(void *inputPtr)
 			inputPaddedPicturePtr
         );
 
-		// 1/4 & 1/16 input picture decimation
-		DecimateInputPicture(
+// zhuchen used for ME 1ms
+#if (1)
+        // 1/4 & 1/16 input picture decimation
+        DecimateInputPicture(
             sequenceControlSetPtr,
-			pictureControlSetPtr,
-			inputPaddedPicturePtr,
-			quarterDecimatedPicturePtr,
-			sixteenthDecimatedPicturePtr);
+              pictureControlSetPtr,
+              inputPaddedPicturePtr,
+              quarterDecimatedPicturePtr,
+              sixteenthDecimatedPicturePtr);
+#endif
 
-		// Gathering statistics of input picture, including Variance Calculation, Histogram Bins
-		GatheringPictureStatistics(
-			sequenceControlSetPtr,
-			pictureControlSetPtr,
-            contextPtr,
-			pictureControlSetPtr->chromaDownSamplePicturePtr, //420 inputPicturePtr
-			inputPaddedPicturePtr,
-			sixteenthDecimatedPicturePtr,
-			lcuTotalCount);
+// zhuchen RC related
+#if (0) //0
+        // Gathering statistics of input picture, including Variance Calculation, Histogram Bins
+        GatheringPictureStatistics(
+              sequenceControlSetPtr,
+              pictureControlSetPtr,
+              contextPtr,
+              pictureControlSetPtr->chromaDownSamplePicturePtr, //420 inputPicturePtr
+              inputPaddedPicturePtr,
+              sixteenthDecimatedPicturePtr,
+              lcuTotalCount);
+#endif
 
 
 		// Hold the 64x64 variance and mean in the reference frame

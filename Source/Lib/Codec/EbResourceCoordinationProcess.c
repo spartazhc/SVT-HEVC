@@ -621,6 +621,8 @@ void* ResourceCoordinationKernel(void *inputPtr)
         //       posted the buffer as its result, and the buffer belonging to a PCS object is recorded in
         //       the Initial Rate Control process. So need to record the PCS object immediately once the
         //       1st frame is EOS, to make it go through the whole encoding kernels.
+// zhuchen RCP
+#if (0)
         if (((pictureControlSetPtr->pictureNumber > 0) && (prevPictureControlSetWrapperPtr != (EbObjectWrapper_t*)EB_NULL)) ||
                 endOfSequenceFlag) {
             if (prevPictureControlSetWrapperPtr && prevPictureControlSetWrapperPtr->objectPtr)
@@ -646,6 +648,20 @@ void* ResourceCoordinationKernel(void *inputPtr)
         }
 
         prevPictureControlSetWrapperPtr = pictureControlSetWrapperPtr;
+
+#else
+        ((PictureParentControlSet_t*)pictureControlSetWrapperPtr->objectPtr)->endOfSequenceFlag = endOfSequenceFlag;
+
+        EbGetEmptyObject(
+            contextPtr->resourceCoordinationResultsOutputFifoPtr,
+            &outputWrapperPtr);
+        outputResultsPtr = (ResourceCoordinationResults_t*)outputWrapperPtr->objectPtr;
+        outputResultsPtr->pictureControlSetWrapperPtr = pictureControlSetWrapperPtr;
+
+        // Post the finished Results Object
+        EbPostFullObject(outputWrapperPtr);
+#endif
+
 
         if (sequenceControlSetPtr->staticConfig.segmentOvEnabled) {
             EB_MEMCPY(pictureControlSetPtr->segmentOvArray, ebInputPtr->segmentOvPtr, sizeof(SegmentOverride_t) * sequenceControlSetPtr->lcuTotalCount);
