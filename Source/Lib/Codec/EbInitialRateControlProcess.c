@@ -934,8 +934,13 @@ void* InitialRateControlKernel(void *inputPtr)
 					endOfSequenceFlag = EB_FALSE;
 				}
 				framesInSw = 0;
+#if 0 //Temporarily add 1 frame delay for system 
 				while (moveSlideWondowFlag && !endOfSequenceFlag &&
 					queueEntryIndexTemp <= encodeContextPtr->initialRateControlReorderQueueHeadIndex + sequenceControlSetPtr->staticConfig.lookAheadDistance){
+#else
+				while (moveSlideWondowFlag && !endOfSequenceFlag &&
+					queueEntryIndexTemp <= encodeContextPtr->initialRateControlReorderQueueHeadIndex + sequenceControlSetPtr->staticConfig.lookAheadDistance + 1){
+#endif
 					// framesInSw <= sequenceControlSetPtr->staticConfig.lookAheadDistance){
 
 					framesInSw++;
