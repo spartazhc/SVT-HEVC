@@ -509,30 +509,36 @@ void UnpackL0L1AvgSafeSub(
 
 
  }
-void UnPack2D(
-    EB_U16      *in16BitBuffer,
-    EB_U32       inStride,
-    EB_U8       *out8BitBuffer,
-    EB_U32       out8Stride,
-    EB_U8       *outnBitBuffer,
-    EB_U32       outnStride,
-    EB_U32       width,
-    EB_U32       height
-    )
+void* UnPack2D(void *context)
 {
+    UnPackContext_t* contextPtr = (UnPackContext_t*)context;
+    EbObjectWrapper_t   *copyFrameBufferWrapperPtr;
+    EbObjectWrapper_t   *unpackEndSyncWrapperPtr;
+    EBUnPack2DType_t            *unpack;
+    
+    for(;;){
+        EbGetFullObject(contextPtr->copyFrameOutputFifoPtr,&copyFrameBufferWrapperPtr);
+        EB_CHECK_END_OBJ(copyFrameBufferWrapperPtr);
+        unpack = (EBUnPack2DType_t*)copyFrameBufferWrapperPtr->objectPtr;
 #ifndef NON_AVX512_SUPPORT
-    UnPack2D_funcPtrArray_16Bit[((width & 3) == 0) && ((height & 1)== 0)][!!(ASM_TYPES & AVX512_MASK)](
+    UnPack2D_funcPtrArray_16Bit[((unpack->width & 3) == 0) && ((unpack->height & 1)== 0)][!!(ASM_TYPES & AVX512_MASK)](
 #else
-    UnPack2D_funcPtrArray_16Bit[((width & 3) == 0) && ((height & 1) == 0)][!!(ASM_TYPES & AVX2_MASK)](
+    UnPack2D_funcPtrArray_16Bit[((unpack->width & 3) == 0) && ((unpack->height & 1) == 0)][!!(ASM_TYPES & AVX2_MASK)](
 #endif
-        in16BitBuffer,
-        inStride,
-        out8BitBuffer,
-        outnBitBuffer,
-        out8Stride,
-        outnStride,
-        width,
-        height);
+        unpack->in16BitBuffer,
+        unpack->inStride,
+        unpack->out8BitBuffer,
+        unpack->outnBitBuffer,
+        unpack->out8Stride,
+        unpack->outnStride,
+        unpack->width,
+        unpack->height);
+    
+        EbGetEmptyObject(contextPtr->unPackInputFifoPtr,&unpackEndSyncWrapperPtr);
+        EbReleaseObject(copyFrameBufferWrapperPtr);
+        EbPostFullObject(unpackEndSyncWrapperPtr);
+    }
+    return EB_NULL;
 }
 
 void Pack2D_SRC(

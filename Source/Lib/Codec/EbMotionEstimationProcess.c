@@ -138,34 +138,36 @@ static void SetMeHmeParamsFromConfig(
     meContextPtr->searchAreaHeight = (EB_U8)sequenceControlSetPtr->staticConfig.searchAreaHeight;
 }
 
+
+static void MotionEstimationContextDctor(EB_PTR p)
+{
+    MotionEstimationContext_t* obj = (MotionEstimationContext_t*)p;
+    EB_DELETE(obj->intraRefPtr);
+    EB_DELETE(obj->meContextPtr);
+}
+
 /************************************************
  * Motion Analysis Context Constructor
  ************************************************/
 
 EB_ERRORTYPE MotionEstimationContextCtor(
-	MotionEstimationContext_t   **contextDblPtr,
+	MotionEstimationContext_t    *contextPtr,
 	EbFifo_t                     *pictureDecisionResultsInputFifoPtr,
-	EbFifo_t                     *motionEstimationResultsOutputFifoPtr) {
-
-	EB_ERRORTYPE return_error = EB_ErrorNone;
-	MotionEstimationContext_t *contextPtr;
-	EB_MALLOC(MotionEstimationContext_t*, contextPtr, sizeof(MotionEstimationContext_t), EB_N_PTR);
-
-	*contextDblPtr = contextPtr;
-
+	EbFifo_t                     *motionEstimationResultsOutputFifoPtr)
+{
+    contextPtr->dctor = MotionEstimationContextDctor;
 	contextPtr->pictureDecisionResultsInputFifoPtr = pictureDecisionResultsInputFifoPtr;
 	contextPtr->motionEstimationResultsOutputFifoPtr = motionEstimationResultsOutputFifoPtr;
-	return_error = IntraOpenLoopReferenceSamplesCtor(&contextPtr->intraRefPtr);
-	if (return_error == EB_ErrorInsufficientResources){
-		return EB_ErrorInsufficientResources;
-	}
-	return_error = MeContextCtor(&(contextPtr->meContextPtr));
-	if (return_error == EB_ErrorInsufficientResources){
-		return EB_ErrorInsufficientResources;
-	}
+
+    EB_NEW(
+        contextPtr->intraRefPtr,
+        IntraOpenLoopReferenceSamplesCtor);
+
+    EB_NEW(
+        contextPtr->meContextPtr,
+        MeContextCtor);
 
 	return EB_ErrorNone;
-
 }
 
 /***************************************************************************************************
@@ -665,11 +667,13 @@ void* MotionEstimationKernel(void *inputPtr)
 		sixteenthDecimatedPicturePtr = (EbPictureBufferDesc_t*)paReferenceObject->sixteenthDecimatedPicturePtr;
         inputPaddedPicturePtr = (EbPictureBufferDesc_t*)paReferenceObject->inputPaddedPicturePtr;
 		inputPicturePtr = pictureControlSetPtr->enhancedPicturePtr;
-#if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld ME IN \n", pictureControlSetPtr->pictureNumber);
-#endif
 		// Segments
 		segmentIndex = inputResultsPtr->segmentIndex;
+#if DEADLOCK_DEBUG
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            if (segmentIndex == 0)
+                SVT_LOG("POC %lu ME IN \n", pictureControlSetPtr->pictureNumber);
+#endif
 		pictureWidthInLcu = (sequenceControlSetPtr->lumaWidth + sequenceControlSetPtr->lcuSize - 1) / sequenceControlSetPtr->lcuSize;
 		pictureHeightInLcu = (sequenceControlSetPtr->lumaHeight + sequenceControlSetPtr->lcuSize - 1) / sequenceControlSetPtr->lcuSize;
 		SEGMENT_CONVERT_IDX_TO_XY(segmentIndex, xSegmentIndex, ySegmentIndex, pictureControlSetPtr->meSegmentsColumnCount);
@@ -951,9 +955,6 @@ void* MotionEstimationKernel(void *inputPtr)
 				}
 			}
 		}
-#if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld ME OUT \n", pictureControlSetPtr->pictureNumber);
-#endif
         EbReleaseMutex(pictureControlSetPtr->rcDistortionHistogramMutex);
 		// Get Empty Results Object
 		EbGetEmptyObject(
@@ -969,6 +970,11 @@ void* MotionEstimationKernel(void *inputPtr)
 
 		// Post the Full Results Object
 		EbPostFullObject(outputResultsWrapperPtr);
+#if DEADLOCK_DEBUG
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            if (segmentIndex == (EB_U32)(pictureControlSetPtr->meSegmentsTotalCount - 1))
+                SVT_LOG("POC %lu ME OUT \n", pictureControlSetPtr->pictureNumber);
+#endif
 	}
 	return EB_NULL;
 }

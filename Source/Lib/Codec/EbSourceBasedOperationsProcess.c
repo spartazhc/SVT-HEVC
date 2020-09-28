@@ -64,14 +64,10 @@ const EB_U8 EbHevcMaxDeltaQPdefault[3] = {
 ************************************************/
 
 EB_ERRORTYPE SourceBasedOperationsContextCtor(
-    SourceBasedOperationsContext_t **contextDblPtr,
+    SourceBasedOperationsContext_t  *contextPtr,
     EbFifo_t						*initialRateControlResultsInputFifoPtr,
     EbFifo_t						*pictureDemuxResultsOutputFifoPtr)
 {
-	SourceBasedOperationsContext_t *contextPtr;
-
-	EB_MALLOC(SourceBasedOperationsContext_t*, contextPtr, sizeof(SourceBasedOperationsContext_t), EB_N_PTR);
-	*contextDblPtr = contextPtr;
 	contextPtr->initialrateControlResultsInputFifoPtr = initialRateControlResultsInputFifoPtr;
 	contextPtr->pictureDemuxResultsOutputFifoPtr = pictureDemuxResultsOutputFifoPtr;
 
@@ -1421,7 +1417,8 @@ void* SourceBasedOperationsKernel(void *inputPtr)
 		sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
 
 #if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld SRC IN \n", pictureControlSetPtr->pictureNumber);
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            SVT_LOG("POC %lu SRC IN \n", pictureControlSetPtr->pictureNumber);
 #endif
 		pictureControlSetPtr->darkBackGroundlightForeGround = EB_FALSE;
 		contextPtr->pictureNumGrassLcu = 0;
@@ -1669,10 +1666,6 @@ void* SourceBasedOperationsKernel(void *inputPtr)
             }
         }
 
-#if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld SRC OUT \n", pictureControlSetPtr->pictureNumber);
-#endif
-
         // Get Empty Results Object
         EbGetEmptyObject(
             contextPtr->pictureDemuxResultsOutputFifoPtr,
@@ -1706,6 +1699,11 @@ void* SourceBasedOperationsKernel(void *inputPtr)
 
         // Post the Full Results Object
         EbPostFullObject(outputResultsWrapperPtr);
+
+#if DEADLOCK_DEBUG
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            SVT_LOG("POC %lu SRC OUT \n", pictureControlSetPtr->pictureNumber);
+#endif
 
     }
     return EB_NULL;

@@ -349,10 +349,6 @@ EB_ERRORTYPE AllocateInputBuffer(
         inputPtr->crExt = 0;
     }
 
-    if (config->dolbyVisionProfile == 81 && config->dolbyVisionRpuFile) {
-        EB_APP_MALLOC(uint8_t*, inputPtr->dolbyVisionRpu.payload, 1024, EB_N_PTR, EB_ErrorInsufficientResources);
-    }
-
     return return_error;
 }
 
@@ -389,6 +385,9 @@ EB_ERRORTYPE AllocateInputBuffers(
         size_t lcuTotalCount = pictureWidthInLcu * pictureHeightInLcu;
         EB_APP_MALLOC(SegmentOverride_t*, callbackData->inputBufferPool->segmentOvPtr, sizeof(SegmentOverride_t) * lcuTotalCount, EB_N_PTR, EB_ErrorInsufficientResources);
     }
+    else {
+        callbackData->inputBufferPool->segmentOvPtr = NULL;
+    }
 
     return return_error;
 }
@@ -414,28 +413,6 @@ EB_ERRORTYPE AllocateOutputReconBuffers(
 
     callbackData->reconBuffer->nAllocLen = (uint32_t)frameSize;
     callbackData->reconBuffer->pAppPrivate = NULL;
-    return return_error;
-}
-
-EB_ERRORTYPE AllocateOutputBuffers(
-    EbConfig_t				*config,
-    EbAppContext_t			*callbackData)
-{
-
-    EB_ERRORTYPE   return_error = EB_ErrorNone;
-    uint32_t		   outputStreamBufferSize = (uint32_t)(EB_OUTPUTSTREAMBUFFERSIZE_MACRO(config->inputPaddedHeight * config->inputPaddedWidth));;
-    {
-        EB_APP_MALLOC(EB_BUFFERHEADERTYPE*, callbackData->streamBufferPool, sizeof(EB_BUFFERHEADERTYPE), EB_N_PTR, EB_ErrorInsufficientResources);
-
-        // Initialize Header
-        callbackData->streamBufferPool->nSize = sizeof(EB_BUFFERHEADERTYPE);
-
-        EB_APP_MALLOC(uint8_t*, callbackData->streamBufferPool->pBuffer, outputStreamBufferSize, EB_N_PTR, EB_ErrorInsufficientResources);
-
-        callbackData->streamBufferPool->nAllocLen = outputStreamBufferSize;
-        callbackData->streamBufferPool->pAppPrivate = NULL;
-        callbackData->streamBufferPool->sliceType = EB_INVALID_PICTURE;
-    }
     return return_error;
 }
 
@@ -651,6 +628,9 @@ EB_ERRORTYPE InitEncoder(
 
     // STEP 5: Init Encoder
     return_error = EbInitEncoder(callbackData->svtEncoderHandle);
+    if (return_error != EB_ErrorNone) {
+        return return_error;
+    }
 
     ///************************* LIBRARY INIT [END] *********************///
 
@@ -665,16 +645,7 @@ EB_ERRORTYPE InitEncoder(
         return return_error;
     }
 
-    // STEP 7: Allocate output buffers carrying the bitstream out
-    return_error = AllocateOutputBuffers(
-        config,
-        callbackData);
-
-    if (return_error != EB_ErrorNone) {
-        return return_error;
-    }
-
-    // STEP 8: Allocate output Recon Buffer
+    // STEP 7: Allocate output Recon Buffer
     return_error = AllocateOutputReconBuffers(
         config,
         callbackData);

@@ -250,34 +250,35 @@ static void AdaptiveDlfParameterComputation(
 
 }
 
+static void ModeDecisionConfigurationContextDctor(EB_PTR p)
+{
+    ModeDecisionConfigurationContext_t *obj = (ModeDecisionConfigurationContext_t*)p;
+
+    EB_FREE(obj->mdRateEstimationPtr);
+    EB_FREE_ARRAY(obj->lcuScoreArray);
+    EB_FREE_ARRAY(obj->lcuCostArray);
+}
 
 /******************************************************
  * Mode Decision Configuration Context Constructor
  ******************************************************/
 EB_ERRORTYPE ModeDecisionConfigurationContextCtor(
-    ModeDecisionConfigurationContext_t **contextDblPtr,
+    ModeDecisionConfigurationContext_t  *contextPtr,
     EbFifo_t                            *rateControlInputFifoPtr,
-
     EbFifo_t                            *modeDecisionConfigurationOutputFifoPtr,
-    EB_U16						         lcuTotalCount)
+    EB_U16                              lcuTotalCount)
 {
-    ModeDecisionConfigurationContext_t *contextPtr;
-
-    EB_MALLOC(ModeDecisionConfigurationContext_t*, contextPtr, sizeof(ModeDecisionConfigurationContext_t), EB_N_PTR);
-
-    *contextDblPtr = contextPtr;
+    contextPtr->dctor = ModeDecisionConfigurationContextDctor;
 
     // Input/Output System Resource Manager FIFOs
     contextPtr->rateControlInputFifoPtr                      = rateControlInputFifoPtr;
     contextPtr->modeDecisionConfigurationOutputFifoPtr       = modeDecisionConfigurationOutputFifoPtr;
     // Rate estimation
-    EB_MALLOC(MdRateEstimationContext_t*, contextPtr->mdRateEstimationPtr, sizeof(MdRateEstimationContext_t), EB_N_PTR);
-
+    EB_MALLOC(contextPtr->mdRateEstimationPtr, sizeof(MdRateEstimationContext_t));
 
     // Budgeting
-    EB_MALLOC(EB_U32*,contextPtr->lcuScoreArray,sizeof(EB_U32) * lcuTotalCount, EB_N_PTR);
-    EB_MALLOC(EB_U8 *,contextPtr->lcuCostArray ,sizeof(EB_U8 ) * lcuTotalCount, EB_N_PTR);
-
+    EB_MALLOC_ARRAY(contextPtr->lcuScoreArray, lcuTotalCount);
+    EB_MALLOC_ARRAY(contextPtr->lcuCostArray, lcuTotalCount);
 
     return EB_ErrorNone;
 }
@@ -1929,7 +1930,8 @@ void* ModeDecisionConfigurationKernel(void *inputPtr)
 		pictureControlSetPtr = (PictureControlSet_t*)rateControlResultsPtr->pictureControlSetWrapperPtr->objectPtr;
 		sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
 #if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld MDC IN \n", pictureControlSetPtr->pictureNumber);
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            SVT_LOG("POC %lu MDC IN \n", pictureControlSetPtr->pictureNumber);
 #endif
         SignalDerivationModeDecisionConfigKernelOq(
                 pictureControlSetPtr,
@@ -2077,9 +2079,6 @@ void* ModeDecisionConfigurationKernel(void *inputPtr)
             pictureControlSetPtr->ParentPcsPtr->averageQp = (EB_U8)pictureControlSetPtr->ParentPcsPtr->pictureQp;
         }
 
-#if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld MDC OUT \n", pictureControlSetPtr->pictureNumber);
-#endif
         // Post the results to the MD processes
         EB_U16 tileGroupRowCnt = sequenceControlSetPtr->tileGroupRowCountArray[pictureControlSetPtr->temporalLayerIndex];
         EB_U16 tileGroupColCnt = sequenceControlSetPtr->tileGroupColCountArray[pictureControlSetPtr->temporalLayerIndex];
@@ -2099,6 +2098,10 @@ void* ModeDecisionConfigurationKernel(void *inputPtr)
                 EbPostFullObject(encDecTasksWrapperPtr);
             }
         }
+#if DEADLOCK_DEBUG
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            SVT_LOG("POC %lu MDC OUT \n", pictureControlSetPtr->pictureNumber);
+#endif
 
 #if LATENCY_PROFILE
         double latency = 0.0;

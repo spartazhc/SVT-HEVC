@@ -992,6 +992,12 @@ void fillOneSegment(
         return;
     }
 
+    if (x1 > config->sourceWidth || x2 > config->sourceWidth ||
+        y1 > config->sourceHeight || y2 > config->sourceHeight) {
+        printf("\nSVT [Warning]: provided region is invalid, cannot perform caculation");
+        return;
+    }
+
     uint32_t widthMinInLCU = MIN(x1, x2) / EB_SEGMENT_BLOCK_SIZE;
     uint32_t widthMaxInLCU = MIN((MAX(x1, x2) + EB_SEGMENT_BLOCK_SIZE - 1) / EB_SEGMENT_BLOCK_SIZE,pictureWidthInLcu);
 
@@ -1047,7 +1053,7 @@ void fillSegmentOv(
 #ifdef _WIN32
         result = fscanf_s(config->segmentOvFile, "%u", &segmentNo);
 #else
-        result = fscanf(config->segmentOvFile, "%d", &segmentNo);
+        result = fscanf(config->segmentOvFile, "%u", &segmentNo);
 #endif
         if (result == 1) {
             for (uint32_t segment = 0; segment < segmentNo; segment++) {
@@ -1285,6 +1291,8 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(EbConfig_t *config, EbAppContext_t *appC
                 config,
                 headerPtr);
 
+// zhuchen RCP
+#if (0) //0
         // Send the picture
         EbH265EncSendPicture(componentHandle, headerPtr);
 
@@ -1301,6 +1309,15 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(EbConfig_t *config, EbAppContext_t *appC
             EbH265EncSendPicture(componentHandle, headerPtr);
 
         }
+#else
+        if ((config->processedFrameCount == (uint64_t)config->framesToBeEncoded) || config->stopEncoder)
+            headerPtr->nFlags = EB_BUFFERFLAG_EOS;
+
+        // Send the picture
+        EbH265EncSendPicture(componentHandle, headerPtr);
+#endif
+
+
 
         return_value = (headerPtr->nFlags == EB_BUFFERFLAG_EOS) ? APP_ExitConditionFinished : return_value;
 
@@ -1388,6 +1405,7 @@ APPEXITCONDITIONTYPE ProcessOutputStreamBuffer(
                 fwrite(outputStreamBuffer->pBuffer, 1, outputStreamBuffer->nFilledLen, streamFile);
             }
             config->performanceContext.byteCount += outputStreamBuffer->nFilledLen;
+            EbH265EncReleaseEosNal(outputStreamBuffer);
         }
         // Update Output Port Activity State
         *portState = (headerPtr->nFlags & EB_BUFFERFLAG_EOS) ? APP_PortInactive : *portState;

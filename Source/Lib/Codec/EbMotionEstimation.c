@@ -1957,6 +1957,12 @@ void EbHevcHmeOneQuadrantLevel0(
 			    searchAreaHeight
 			    );
 #else
+//zhuchen
+#if 0
+            searchAreaWidth = searchAreaWidth / 2;
+            searchAreaHeight = searchAreaHeight / 2;
+#endif
+
             SadLoopKernel_AVX2_HmeL0_INTRIN(
                 &contextPtr->sixteenthLcuBuffer[0],
                 contextPtr->sixteenthLcuBufferStride,
@@ -3429,6 +3435,8 @@ static void TestSearchAreaBounds(
         ySearchCenter - ((originY + ySearchCenter) - ((EB_S16)refPicPtr->height - 1)) :
         ySearchCenter;
 
+    searchRegionIndex = (EB_S16)(refPicPtr->originX + originX) + xSearchCenter +
+        ((EB_S16)(refPicPtr->originY + originY) + ySearchCenter) * refPicPtr->strideY;
 
     EB_U64 MvASad = NxMSadKernel_funcPtrArray[!!(ASM_TYPES & AVX2_MASK)][lcuWidth >> 3](
         contextPtr->lcuSrcPtr,

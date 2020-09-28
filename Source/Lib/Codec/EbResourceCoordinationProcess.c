@@ -20,27 +20,28 @@
 #include "EbReferenceObject.h"
 #include "EbUtility.h"
 
+static void ResourceCoordinationContextDctor(EB_PTR p)
+{
+    ResourceCoordinationContext_t *obj = (ResourceCoordinationContext_t*)p;
+    EB_FREE_ARRAY(obj->sequenceControlSetActiveArray);
+    EB_FREE_ARRAY(obj->pictureNumberArray);
+}
+
 /************************************************
  * Resource Coordination Context Constructor
  ************************************************/
 EB_ERRORTYPE ResourceCoordinationContextCtor(
-    ResourceCoordinationContext_t  **contextDblPtr,
+    ResourceCoordinationContext_t   *contextPtr,
     EbFifo_t                        *inputBufferFifoPtr,
     EbFifo_t                        *resourceCoordinationResultsOutputFifoPtr,
     EbFifo_t                       **pictureControlSetFifoPtrArray,
     EbSequenceControlSetInstance_t **sequenceControlSetInstanceArray,
     EbFifo_t                        *sequenceControlSetEmptyFifoPtr,
-    EbCallback_t                **appCallbackPtrArray,
+    EbCallback_t                   **appCallbackPtrArray,
     EB_U32                          *computeSegmentsTotalCountArray,
     EB_U32                           encodeInstancesTotalCount)
 {
-    EB_U32 instanceIndex;
-
-    ResourceCoordinationContext_t *contextPtr;
-    EB_MALLOC(ResourceCoordinationContext_t*, contextPtr, sizeof(ResourceCoordinationContext_t), EB_N_PTR);
-
-    *contextDblPtr = contextPtr;
-
+    contextPtr->dctor = ResourceCoordinationContextDctor;
     contextPtr->inputBufferFifoPtr                       = inputBufferFifoPtr;
     contextPtr->resourceCoordinationResultsOutputFifoPtr    = resourceCoordinationResultsOutputFifoPtr;
     contextPtr->pictureControlSetFifoPtrArray               = pictureControlSetFifoPtrArray;
@@ -51,37 +52,11 @@ EB_ERRORTYPE ResourceCoordinationContextCtor(
     contextPtr->encodeInstancesTotalCount                   = encodeInstancesTotalCount;
 
     // Allocate SequenceControlSetActiveArray
-    EB_MALLOC(EbObjectWrapper_t**, contextPtr->sequenceControlSetActiveArray, sizeof(EbObjectWrapper_t*) * contextPtr->encodeInstancesTotalCount, EB_N_PTR);
-
-    for(instanceIndex=0; instanceIndex < contextPtr->encodeInstancesTotalCount; ++instanceIndex) {
-        contextPtr->sequenceControlSetActiveArray[instanceIndex] = 0;
-    }
+    EB_CALLOC_ARRAY(contextPtr->sequenceControlSetActiveArray, contextPtr->encodeInstancesTotalCount);
 
     // Picture Stats
-    EB_MALLOC(EB_U64*, contextPtr->pictureNumberArray, sizeof(EB_U64) * contextPtr->encodeInstancesTotalCount, EB_N_PTR);
+    EB_CALLOC_ARRAY(contextPtr->pictureNumberArray, contextPtr->encodeInstancesTotalCount);
 
-    for(instanceIndex=0; instanceIndex < contextPtr->encodeInstancesTotalCount; ++instanceIndex) {
-        contextPtr->pictureNumberArray[instanceIndex] = 0;
-    }
-
-	contextPtr->averageEncMod = 0;
-	contextPtr->prevEncMod = 0;
-	contextPtr->prevEncModeDelta = 0;
-	contextPtr->curSpeed = 0; // speed x 1000
-	contextPtr->previousModeChangeBuffer = 0;
-    contextPtr->firstInPicArrivedTimeSeconds = 0;
-    contextPtr->firstInPicArrivedTimeuSeconds = 0;
-	contextPtr->previousFrameInCheck1 = 0;
-	contextPtr->previousFrameInCheck2 = 0;
-	contextPtr->previousFrameInCheck3 = 0;
-	contextPtr->previousModeChangeFrameIn = 0;
-    contextPtr->prevsTimeSeconds = 0;
-    contextPtr->prevsTimeuSeconds = 0;
-	contextPtr->prevFrameOut = 0;
-	contextPtr->startFlag = EB_FALSE;
-
-	contextPtr->previousBufferCheck1 = 0;
-	contextPtr->prevChangeCond = 0;
     return EB_ErrorNone;
 }
 
@@ -609,7 +584,9 @@ void* ResourceCoordinationKernel(void *inputPtr)
         pictureControlSetPtr->pictureNumber                   = contextPtr->pictureNumberArray[instanceIndex]++;
 
 #if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld RESCOOR IN \n", pictureControlSetPtr->pictureNumber);
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            if (!endOfSequenceFlag)
+                SVT_LOG("POC %lu RESCOOR IN \n", pictureControlSetPtr->pictureNumber);
 #endif
         // Set the picture structure: 0: progressive, 1: top, 2: bottom
         pictureControlSetPtr->pictStruct = sequenceControlSetPtr->interlacedVideo == EB_FALSE ?
@@ -627,16 +604,16 @@ void* ResourceCoordinationKernel(void *inputPtr)
 
         pictureControlSetPtr->paReferencePictureWrapperPtr = referencePictureWrapperPtr;
 
-        // Give the new Reference a nominal liveCount of 1
+        // Note: the PPCS and its PA reference picture will be released in both EncDec and RateControl kernels.
+        // Give the new Reference a nominal liveCount of 2, meanwhile increase liveCount of PPCS with 1 as it's
+        // already 1 after dequeuing from the PPCS FIFO.
         EbObjectIncLiveCount(
-        	pictureControlSetPtr->paReferencePictureWrapperPtr,
-            2);
+                pictureControlSetPtr->paReferencePictureWrapperPtr,
+                2);
 
         EbObjectIncLiveCount(
-            pictureControlSetWrapperPtr,
-            2);
-
-        ((EbPaReferenceObject_t*)pictureControlSetPtr->paReferencePictureWrapperPtr->objectPtr)->inputPaddedPicturePtr->bufferY = inputPicturePtr->bufferY;
+                pictureControlSetWrapperPtr,
+                1);
 
         // Get Empty Output Results Object
         // Note: record the PCS object into output of the Resource Coordination process for EOS frame(s).
@@ -644,6 +621,8 @@ void* ResourceCoordinationKernel(void *inputPtr)
         //       posted the buffer as its result, and the buffer belonging to a PCS object is recorded in
         //       the Initial Rate Control process. So need to record the PCS object immediately once the
         //       1st frame is EOS, to make it go through the whole encoding kernels.
+// zhuchen RCP
+#if (0)
         if (((pictureControlSetPtr->pictureNumber > 0) && (prevPictureControlSetWrapperPtr != (EbObjectWrapper_t*)EB_NULL)) ||
                 endOfSequenceFlag) {
             if (prevPictureControlSetWrapperPtr && prevPictureControlSetWrapperPtr->objectPtr)
@@ -661,18 +640,32 @@ void* ResourceCoordinationKernel(void *inputPtr)
 
             // Post the finished Results Object
             EbPostFullObject(outputWrapperPtr);
+#if DEADLOCK_DEBUG
+            if ((((PictureParentControlSet_t *)outputResultsPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber >= MIN_POC) &&
+                    (((PictureParentControlSet_t *)outputResultsPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber <= MAX_POC))
+                SVT_LOG("POC %lu RESCOOR OUT \n", ((PictureParentControlSet_t *)outputResultsPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber);
+#endif
         }
 
         prevPictureControlSetWrapperPtr = pictureControlSetWrapperPtr;
 
+#else
+        ((PictureParentControlSet_t*)pictureControlSetWrapperPtr->objectPtr)->endOfSequenceFlag = endOfSequenceFlag;
+
+        EbGetEmptyObject(
+            contextPtr->resourceCoordinationResultsOutputFifoPtr,
+            &outputWrapperPtr);
+        outputResultsPtr = (ResourceCoordinationResults_t*)outputWrapperPtr->objectPtr;
+        outputResultsPtr->pictureControlSetWrapperPtr = pictureControlSetWrapperPtr;
+
+        // Post the finished Results Object
+        EbPostFullObject(outputWrapperPtr);
+#endif
+
+
         if (sequenceControlSetPtr->staticConfig.segmentOvEnabled) {
             EB_MEMCPY(pictureControlSetPtr->segmentOvArray, ebInputPtr->segmentOvPtr, sizeof(SegmentOverride_t) * sequenceControlSetPtr->lcuTotalCount);
         }
-
-#if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld RESCOOR OUT \n", pictureControlSetPtr->pictureNumber);
-#endif
-
     }
 
     return EB_NULL;

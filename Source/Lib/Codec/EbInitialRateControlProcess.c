@@ -357,53 +357,14 @@ void EbHevcDetectGlobalMotion(
 * Initial Rate Control Context Constructor
 ************************************************/
 EB_ERRORTYPE InitialRateControlContextCtor(
-	InitialRateControlContext_t **contextDblPtr,
+	InitialRateControlContext_t  *contextPtr,
 	EbFifo_t                     *motionEstimationResultsInputFifoPtr,
 	EbFifo_t                     *initialrateControlResultsOutputFifoPtr)
 {
-	InitialRateControlContext_t *contextPtr;
-	EB_MALLOC(InitialRateControlContext_t*, contextPtr, sizeof(InitialRateControlContext_t), EB_N_PTR);
-	*contextDblPtr = contextPtr;
 	contextPtr->motionEstimationResultsInputFifoPtr = motionEstimationResultsInputFifoPtr;
 	contextPtr->initialrateControlResultsOutputFifoPtr = initialrateControlResultsOutputFifoPtr;
 
 	return EB_ErrorNone;
-}
-
-/************************************************
-* Release Pa Reference Objects
-** Check if reference pictures are needed
-** release them when appropriate
-************************************************/
-void EbHevcReleasePaReferenceObjects(
-	PictureParentControlSet_t         *pictureControlSetPtr)
-{
-	// PA Reference Pictures
-	EB_U32                             numOfListToSearch;
-	EB_U32                             listIndex;
-	if (pictureControlSetPtr->sliceType != EB_I_PICTURE) {
-
-		numOfListToSearch = (pictureControlSetPtr->sliceType == EB_P_PICTURE) ? REF_LIST_0 : REF_LIST_1;
-
-		// List Loop
-		for (listIndex = REF_LIST_0; listIndex <= numOfListToSearch; ++listIndex) {
-
-				// Release PA Reference Pictures
-				if (pictureControlSetPtr->refPaPicPtrArray[listIndex] != EB_NULL) {
-
-                    EbReleaseObject(((EbPaReferenceObject_t*)pictureControlSetPtr->refPaPicPtrArray[listIndex]->objectPtr)->pPcsPtr->pPcsWrapperPtr);
-					EbReleaseObject(pictureControlSetPtr->refPaPicPtrArray[listIndex]);
-				}
-		}
-	}
-
-	if (pictureControlSetPtr->paReferencePictureWrapperPtr != EB_NULL) {
-
-        EbReleaseObject(pictureControlSetPtr->pPcsWrapperPtr);
-		EbReleaseObject(pictureControlSetPtr->paReferencePictureWrapperPtr);
-	}
-
-	return;
 }
 
 /************************************************
@@ -905,7 +866,6 @@ void* InitialRateControlKernel(void *inputPtr)
     EB_U8                               temporalLayerIndex;
 	EbObjectWrapper_t                  *referencePictureWrapperPtr;
 
-	EbObjectWrapper_t                *outputStreamWrapperPtr;
 
 	for (;;) {
 
@@ -917,11 +877,12 @@ void* InitialRateControlKernel(void *inputPtr)
 
 		inputResultsPtr = (MotionEstimationResults_t*)inputResultsWrapperPtr->objectPtr;
 		pictureControlSetPtr = (PictureParentControlSet_t*)inputResultsPtr->pictureControlSetWrapperPtr->objectPtr;
-#if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld IRC IN \n", pictureControlSetPtr->pictureNumber);
-#endif
         pictureControlSetPtr->meSegmentsCompletionMask++;
         if (pictureControlSetPtr->meSegmentsCompletionMask == pictureControlSetPtr->meSegmentsTotalCount) {
+#if DEADLOCK_DEBUG
+            if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+                SVT_LOG("POC %lu IRC IN \n", pictureControlSetPtr->pictureNumber);
+#endif
 			sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
 			encodeContextPtr = (EncodeContext_t*)sequenceControlSetPtr->encodeContextPtr;
 
@@ -930,10 +891,6 @@ void* InitialRateControlKernel(void *inputPtr)
             EbHevcMeBasedGlobalMotionDetection(
                 sequenceControlSetPtr,
                 pictureControlSetPtr);
-
-			// Release Pa Ref pictures when not needed
-			EbHevcReleasePaReferenceObjects(
-				pictureControlSetPtr);
 
 			//****************************************************
 			// Input Motion Analysis Results into Reordering Queue
@@ -1111,12 +1068,6 @@ void* InitialRateControlKernel(void *inputPtr)
 						1);
 					//OPTION 1:  get the buffer in resource coordination
 
-					EbGetEmptyObject(
-						sequenceControlSetPtr->encodeContextPtr->streamOutputFifoPtr,
-						&outputStreamWrapperPtr);
-
-					pictureControlSetPtr->outputStreamWrapperPtr = outputStreamWrapperPtr;
-
                     // Get Empty Results Object
 					EbGetEmptyObject(
 						contextPtr->initialrateControlResultsOutputFifoPtr,
@@ -1127,6 +1078,11 @@ void* InitialRateControlKernel(void *inputPtr)
 					/////////////////////////////
 					// Post the Full Results Object
 					EbPostFullObject(outputResultsWrapperPtr);
+#if DEADLOCK_DEBUG
+                    if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+                        SVT_LOG("POC %lu IRC OUT \n", pictureControlSetPtr->pictureNumber);
+#endif
+
 #if LATENCY_PROFILE
         double latency = 0.0;
         EB_U64 finishTimeSeconds = 0;
@@ -1158,9 +1114,6 @@ void* InitialRateControlKernel(void *inputPtr)
 				}
 			}
 		}
-#if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld IRC OUT \n", pictureControlSetPtr->pictureNumber);
-#endif
 		// Release the Input Results
 		EbReleaseObject(inputResultsWrapperPtr);
 

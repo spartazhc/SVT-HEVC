@@ -39,25 +39,27 @@
 #define SAMPLE_THRESHOLD_PRECENT_BORDER_LINE      15
 #define SAMPLE_THRESHOLD_PRECENT_TWO_BORDER_LINES 10
 
+static void PictureAnalysisContextDctor(EB_PTR p)
+{
+    PictureAnalysisContext_t *obj = (PictureAnalysisContext_t*)p;
+    EB_DELETE(obj->noisePicturePtr);
+    EB_DELETE(obj->denoisedPicturePtr);
+    EB_FREE_PTR_ARRAY(obj->grad, obj->lcuTotalCountAllocated);
+}
 /************************************************
 * Picture Analysis Context Constructor
 ************************************************/
 EB_ERRORTYPE PictureAnalysisContextCtor(
-	EbPictureBufferDescInitData_t * inputPictureBufferDescInitData,
-	EB_BOOL                         denoiseFlag,
-    PictureAnalysisContext_t      **contextDblPtr,
+    PictureAnalysisContext_t       *contextPtr,
+    EbPictureBufferDescInitData_t  *inputPictureBufferDescInitData,
+    EB_BOOL                         denoiseFlag,
     EbFifo_t                       *resourceCoordinationResultsInputFifoPtr,
     EbFifo_t                       *pictureAnalysisResultsOutputFifoPtr,
-    EB_U16						    lcuTotalCount)
+    EB_U16                          lcuTotalCount)
 {
-	PictureAnalysisContext_t *contextPtr;
-	EB_MALLOC(PictureAnalysisContext_t*, contextPtr, sizeof(PictureAnalysisContext_t), EB_N_PTR);
-	*contextDblPtr = contextPtr;
-
+    contextPtr->dctor = PictureAnalysisContextDctor;
 	contextPtr->resourceCoordinationResultsInputFifoPtr = resourceCoordinationResultsInputFifoPtr;
 	contextPtr->pictureAnalysisResultsOutputFifoPtr = pictureAnalysisResultsOutputFifoPtr;
-
-	EB_ERRORTYPE return_error = EB_ErrorNone;
 
 	if (denoiseFlag == EB_TRUE){
 
@@ -70,13 +72,10 @@ EB_ERRORTYPE PictureAnalysisContextCtor(
 		    inputPictureBufferDescInitData->bufferEnableMask = PICTURE_BUFFER_DESC_Y_FLAG | PICTURE_BUFFER_DESC_Cb_FLAG;
         }
 
-		return_error = EbPictureBufferDescCtor(
-			(EB_PTR*)&(contextPtr->denoisedPicturePtr),
-			(EB_PTR)inputPictureBufferDescInitData);
-
-		if (return_error == EB_ErrorInsufficientResources){
-			return EB_ErrorInsufficientResources;
-		}
+        EB_NEW(
+            contextPtr->denoisedPicturePtr,
+            EbPictureBufferDescCtor,
+            inputPictureBufferDescInitData);
 
         if (inputPictureBufferDescInitData->colorFormat != EB_YUV444) {
 		contextPtr->denoisedPicturePtr->bufferCb = contextPtr->denoisedPicturePtr->bufferY;
@@ -89,21 +88,17 @@ EB_ERRORTYPE PictureAnalysisContextCtor(
 		inputPictureBufferDescInitData->maxHeight = MAX_LCU_SIZE;
 		inputPictureBufferDescInitData->bufferEnableMask = PICTURE_BUFFER_DESC_Y_FLAG;
 
-		return_error = EbPictureBufferDescCtor(
-			(EB_PTR*)&(contextPtr->noisePicturePtr),
-			(EB_PTR)inputPictureBufferDescInitData);
 
-		if (return_error == EB_ErrorInsufficientResources){
-			return EB_ErrorInsufficientResources;
-		}
+        EB_NEW(
+            contextPtr->noisePicturePtr,
+            EbPictureBufferDescCtor,
+            inputPictureBufferDescInitData);
 	}
-
-    EB_MALLOC(EB_U16**, contextPtr->grad, sizeof(EB_U16*) * lcuTotalCount, EB_N_PTR);
+    contextPtr->lcuTotalCountAllocated = lcuTotalCount;
+    EB_ALLOC_PTR_ARRAY(contextPtr->grad, lcuTotalCount);
     for (EB_U16 lcuIndex = 0; lcuIndex < lcuTotalCount; ++lcuIndex) {
-        EB_MALLOC(EB_U16*, contextPtr->grad[lcuIndex], sizeof(EB_U16) * CU_MAX_COUNT, EB_N_PTR);
+        EB_MALLOC_ARRAY(contextPtr->grad[lcuIndex], CU_MAX_COUNT);
     }
-
-
 	return EB_ErrorNone;
 }
 
@@ -4246,7 +4241,8 @@ void* PictureAnalysisKernel(void *inputPtr)
 		sequenceControlSetPtr = (SequenceControlSet_t*)pictureControlSetPtr->sequenceControlSetWrapperPtr->objectPtr;
 		inputPicturePtr = pictureControlSetPtr->enhancedPicturePtr;
 #if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld PA IN \n", pictureControlSetPtr->pictureNumber);
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            SVT_LOG("POC %lu PA IN \n", pictureControlSetPtr->pictureNumber);
 #endif
 		paReferenceObject = (EbPaReferenceObject_t*)pictureControlSetPtr->paReferencePictureWrapperPtr->objectPtr;
 		inputPaddedPicturePtr = (EbPictureBufferDesc_t*)paReferenceObject->inputPaddedPicturePtr;
@@ -4258,16 +4254,27 @@ void* PictureAnalysisKernel(void *inputPtr)
 		pictureHeighInLcu = (sequenceControlSetPtr->lumaHeight + sequenceControlSetPtr->lcuSize - 1) / sequenceControlSetPtr->lcuSize;
 		lcuTotalCount = pictureWidthInLcu * pictureHeighInLcu;
 
-        // Set picture parameters to account for subpicture, picture scantype, and set regions by resolutions
-		SetPictureParametersForStatisticsGathering(
-			sequenceControlSetPtr);
-
 		// Pad pictures to multiple min cu size
 		PadPictureToMultipleOfMinCuSizeDimensions(
 			sequenceControlSetPtr,
 			inputPicturePtr);
 
-		// Pre processing operations performed on the input picture
+        // Backup the Y component data from input picture into PA reference picture, to work arond the race condition that
+        // the input picture buffer pointed by PA reference picture (in ResourceCoordination) would be updated even though
+        // it's still being referenced.
+        EB_U8 *pa = inputPaddedPicturePtr->bufferY + inputPaddedPicturePtr->originX + inputPaddedPicturePtr->originY * inputPaddedPicturePtr->strideY;
+        EB_U8 *in = inputPicturePtr->bufferY + inputPicturePtr->originX + inputPicturePtr->originY * inputPicturePtr->strideY;
+        for (EB_U32 row = 0; row < inputPicturePtr->height; row++) {
+            EB_MEMCPY(pa + row * inputPaddedPicturePtr->strideY, in + row * inputPicturePtr->strideY, sizeof(EB_U8) * inputPicturePtr->width);
+        }
+
+        // Set picture parameters to account for subpicture, picture scantype, and set regions by resolutions
+		SetPictureParametersForStatisticsGathering(
+			sequenceControlSetPtr);
+
+// zhuchen Preprocessing
+#if (0) //0
+        // Pre processing operations performed on the input picture
         PicturePreProcessingOperations(
             pictureControlSetPtr,
             contextPtr,
@@ -4276,6 +4283,7 @@ void* PictureAnalysisKernel(void *inputPtr)
             sixteenthDecimatedPicturePtr,
             lcuTotalCount,
             pictureWidthInLcu);
+#endif
 
         if (inputPicturePtr->colorFormat >= EB_YUV422) {
             // Jing: Do the conversion of 422/444=>420 here since it's multi-threaded kernel
@@ -4292,23 +4300,29 @@ void* PictureAnalysisKernel(void *inputPtr)
 			inputPaddedPicturePtr
         );
 
-		// 1/4 & 1/16 input picture decimation
-		DecimateInputPicture(
+// zhuchen used for ME 1ms
+#if (1)
+        // 1/4 & 1/16 input picture decimation
+        DecimateInputPicture(
             sequenceControlSetPtr,
-			pictureControlSetPtr,
-			inputPaddedPicturePtr,
-			quarterDecimatedPicturePtr,
-			sixteenthDecimatedPicturePtr);
+              pictureControlSetPtr,
+              inputPaddedPicturePtr,
+              quarterDecimatedPicturePtr,
+              sixteenthDecimatedPicturePtr);
+#endif
 
-		// Gathering statistics of input picture, including Variance Calculation, Histogram Bins
-		GatheringPictureStatistics(
-			sequenceControlSetPtr,
-			pictureControlSetPtr,
-            contextPtr,
-			pictureControlSetPtr->chromaDownSamplePicturePtr, //420 inputPicturePtr
-			inputPaddedPicturePtr,
-			sixteenthDecimatedPicturePtr,
-			lcuTotalCount);
+// zhuchen RC related
+#if (0) //0
+        // Gathering statistics of input picture, including Variance Calculation, Histogram Bins
+        GatheringPictureStatistics(
+              sequenceControlSetPtr,
+              pictureControlSetPtr,
+              contextPtr,
+              pictureControlSetPtr->chromaDownSamplePicturePtr, //420 inputPicturePtr
+              inputPaddedPicturePtr,
+              sixteenthDecimatedPicturePtr,
+              lcuTotalCount);
+#endif
 
 
 		// Hold the 64x64 variance and mean in the reference frame
@@ -4326,10 +4340,6 @@ void* PictureAnalysisKernel(void *inputPtr)
 
 		outputResultsPtr = (PictureAnalysisResults_t*)outputResultsWrapperPtr->objectPtr;
 		outputResultsPtr->pictureControlSetWrapperPtr = inputResultsPtr->pictureControlSetWrapperPtr;
-
-#if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld PA OUT \n", pictureControlSetPtr->pictureNumber);
-#endif
 
 		// Release the Input Results
 		EbReleaseObject(inputResultsWrapperPtr);
@@ -4355,6 +4365,10 @@ void* PictureAnalysisKernel(void *inputPtr)
 		// Post the Full Results Object
 		EbPostFullObject(outputResultsWrapperPtr);
 
+#if DEADLOCK_DEBUG
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            SVT_LOG("POC %lu PA OUT \n", pictureControlSetPtr->pictureNumber);
+#endif
 	}
 	return EB_NULL;
 }

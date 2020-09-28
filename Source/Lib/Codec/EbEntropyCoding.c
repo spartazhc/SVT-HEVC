@@ -77,32 +77,21 @@ static void BacEncContextFinish(BacEncContext_t *bacEncContextPtr)
 	carry = bacEncContextPtr->intervalLowValue >> (32 - bacEncContextPtr->bitsRemainingNum);
 	bacEncContextPtr->intervalLowValue &= 0xffffffffu >> bacEncContextPtr->bitsRemainingNum;
     if (carry > 0 || bacEncContextPtr->tempBufferedBytesNum > 0) {
-        OutputBitstreamWriteByte(&(bacEncContextPtr->m_pcTComBitIf), (bacEncContextPtr->tempBufferedByte + carry) & 0xff);
+        OutputBitstreamWriteByte(bacEncContextPtr->m_pcTComBitIf, (bacEncContextPtr->tempBufferedByte + carry) & 0xff);
     }
 
 	while (bacEncContextPtr->tempBufferedBytesNum > 1)
 	{
-		OutputBitstreamWriteByte(&(bacEncContextPtr->m_pcTComBitIf), (0xff + carry) & 0xff);
+		OutputBitstreamWriteByte(bacEncContextPtr->m_pcTComBitIf, (0xff + carry) & 0xff);
 
 		bacEncContextPtr->tempBufferedBytesNum--;
 	}
 
 	OutputBitstreamWrite(
-		&(bacEncContextPtr->m_pcTComBitIf),
+		bacEncContextPtr->m_pcTComBitIf,
 		bacEncContextPtr->intervalLowValue >> 8,
 		24 - bacEncContextPtr->bitsRemainingNum);
 
-}
-
-/************************************************
-* CABAC Encoder Constructor
-************************************************/
-void EbHevcCabacCtor(
-	CabacEncodeContext_t *cabacEncContextPtr)
-{
-	EB_MEMSET(cabacEncContextPtr, 0, sizeof(CabacEncodeContext_t));
-
-	return;
 }
 
 /************************************************
@@ -4671,7 +4660,7 @@ static EB_ERRORTYPE EncodeTuSplitCoeff(
 	// number of written bits
 	// + 32  - bits remaining in interval Low Value
 	// + number of buffered byte * 8
-	writtenBitsBeforeQuantizedCoeff = cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf.writtenBitsCount +
+	writtenBitsBeforeQuantizedCoeff = cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf->writtenBitsCount +
 		32 - cabacEncodeCtxPtr->bacEncContext.bitsRemainingNum +
 		(cabacEncodeCtxPtr->bacEncContext.tempBufferedBytesNum << 3);
 	// Root CBF
@@ -4700,7 +4689,7 @@ static EB_ERRORTYPE EncodeTuSplitCoeff(
 	// number of written bits
 	// + 32  - bits remaining in interval Low Value
 	// + number of buffered byte * 8
-	writtenBitsAfterQuantizedCoeff = cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf.writtenBitsCount +
+	writtenBitsAfterQuantizedCoeff = cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf->writtenBitsCount +
 		32 - cabacEncodeCtxPtr->bacEncContext.bitsRemainingNum +
 		(cabacEncodeCtxPtr->bacEncContext.tempBufferedBytesNum << 3);
 
@@ -5344,6 +5333,25 @@ static void CodeProfileTierLevel(
 }
 
 /**************************************************
+* ComputeNumReorderPics
+**************************************************/
+EB_U32 ComputeNumReorderPics(SequenceControlSet_t    *scsPtr)
+{
+    // NumReorderPics indicates the maximum number of pictures that can precede any picture in decoding 
+    // order and follow it in output order.  The value needs to be no greater than the DPB size
+    //
+    //                   hierarchical level   1  2  3  4
+    const EB_U8 reorderPicsPerHierarchy[] = { 0, 1, 2, 3 };
+
+    if (scsPtr->predStructPtr->predType == EB_PRED_LOW_DELAY_P || scsPtr->predStructPtr->predType == EB_PRED_LOW_DELAY_B)
+        // For low delay prediction structures set num reorder pictures to 0
+        return 0;
+    else
+        // For Random Access prediction structures set num reorder pictures according to the number of hierarchical layers
+        return MIN(scsPtr->maxDpbSize - 1, reorderPicsPerHierarchy[scsPtr->maxTemporalLayers]);
+}
+
+/**************************************************
 * CodeVPS
 **************************************************/
 static void CodeVPS(
@@ -5416,10 +5424,13 @@ static void CodeVPS(
 			bitstreamPtr,
 			scsPtr->maxDpbSize - 1/*4*/);//(1 << (scsPtr->maxTemporalLayers-syntaxItr)));
 
+		// vps_max_num_reorder_pics - indicates the maximum number of pictures that can precede any picture in
+		// decoding order and follow it in output order.
 		WriteUvlc(
 			bitstreamPtr,
-			scsPtr->maxDpbSize - 1/*3*/);//(1 << (scsPtr->maxTemporalLayers-syntaxItr)));
+			ComputeNumReorderPics(scsPtr));
 
+		// Max Latency Increase Plus1
 		WriteUvlc(
 			bitstreamPtr,
 			0);
@@ -6037,10 +6048,12 @@ static void CodeSPS(
 		WriteUvlc(
 			bitstreamPtr,
 			scsPtr->maxDpbSize - 1/*4*/);//(1 << (scsPtr->maxTemporalLayers-syntaxItr)));
-
+        
+		// vps_max_num_reorder_pics - indicates the maximum number of pictures that can precede any picture in
+		// decoding order and follow it in output order.
 		WriteUvlc(
 			bitstreamPtr,
-			scsPtr->maxDpbSize - 1/*3*/);//(1 << (scsPtr->maxTemporalLayers-syntaxItr)));
+			ComputeNumReorderPics(scsPtr));
 
 		WriteUvlc(
 			bitstreamPtr,
@@ -6405,8 +6418,8 @@ static void CodePPS(
 static EB_U32 GetEntropyCoderGetBitstreamSize(EntropyCoder_t *entropyCoderPtr)
 {
 	CabacEncodeContext_t *cabacEncCtxPtr = (CabacEncodeContext_t*)entropyCoderPtr->cabacEncodeContextPtr;
-    OutputBitstreamUnit_t *bitstreamPtr = &cabacEncCtxPtr->bacEncContext.m_pcTComBitIf;
-    unsigned payloadBytes = (cabacEncCtxPtr->bacEncContext.m_pcTComBitIf.writtenBitsCount) >> 3;
+    OutputBitstreamUnit_t *bitstreamPtr = cabacEncCtxPtr->bacEncContext.m_pcTComBitIf;
+    unsigned payloadBytes = (cabacEncCtxPtr->bacEncContext.m_pcTComBitIf->writtenBitsCount) >> 3;
     FlushBitstream(bitstreamPtr);
 
     unsigned char *buf = (unsigned char *)bitstreamPtr->bufferBegin;
@@ -6789,12 +6802,12 @@ EB_ERRORTYPE EncodeTileFinish(
     BacEncContextFinish(&(cabacEncodeCtxPtr->bacEncContext));
 
     OutputBitstreamWrite(
-        &(cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf),
+        cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf,
         1,
         1);
 
     OutputBitstreamWriteAlignZero(
-        &(cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf));
+        cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf);
 
     return return_error;
 }
@@ -7183,7 +7196,7 @@ static EB_ERRORTYPE Intra4x4EncodeCoeff(
 	// + 32  - bits remaining in interval Low Value
 	// + number of buffered byte * 8
 	// This should be only for coeffs not any flag
-	writtenBitsBeforeQuantizedCoeff = cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf.writtenBitsCount +
+	writtenBitsBeforeQuantizedCoeff = cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf->writtenBitsCount +
 		32 - cabacEncodeCtxPtr->bacEncContext.bitsRemainingNum +
 		(cabacEncodeCtxPtr->bacEncContext.tempBufferedBytesNum << 3);
 
@@ -7314,7 +7327,7 @@ static EB_ERRORTYPE Intra4x4EncodeCoeff(
 	// number of written bits
 	// + 32  - bits remaining in interval Low Value
 	// + number of buffered byte * 8
-	writtenBitsAfterQuantizedCoeff = cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf.writtenBitsCount +
+	writtenBitsAfterQuantizedCoeff = cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf->writtenBitsCount +
 		32 - cabacEncodeCtxPtr->bacEncContext.bitsRemainingNum +
 		(cabacEncodeCtxPtr->bacEncContext.tempBufferedBytesNum << 3);
 
@@ -8133,13 +8146,13 @@ EB_ERRORTYPE EncodeSliceFinish(
 
 	//pcBitstreamOut->write( 1, 1 );
 	OutputBitstreamWrite(
-		&(cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf),
+		cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf,
 		1,
 		1);
 
 	//pcBitstreamOut->writeAlignZero();
 	OutputBitstreamWriteAlignZero(
-		&(cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf));
+		cabacEncodeCtxPtr->bacEncContext.m_pcTComBitIf);
 
 	return return_error;
 }
@@ -9249,7 +9262,7 @@ EB_ERRORTYPE CodeDolbyVisionRpuMetadata(
 
 EB_ERRORTYPE CopyRbspBitstreamToPayload(
 	Bitstream_t *bitstreamPtr,
-	EB_BYTE      outputBuffer,
+	EB_BYTE     *outputBuffer,
 	EB_U32      *outputBufferIndex,
 	EB_U32      *outputBufferSize,
 	EncodeContext_t         *encodeContextPtr,
@@ -9257,18 +9270,21 @@ EB_ERRORTYPE CopyRbspBitstreamToPayload(
 {
 	EB_ERRORTYPE return_error = EB_ErrorNone;
 	OutputBitstreamUnit_t *outputBitstreamPtr = (OutputBitstreamUnit_t*)bitstreamPtr->outputBitstreamPtr;
+    (void)encodeContextPtr;
 
-
-	CHECK_REPORT_ERROR(
-		((outputBitstreamPtr->writtenBitsCount >> 3) + (*outputBufferIndex) < (*outputBufferSize)),
-		encodeContextPtr->appCallbackPtr,
-		EB_ENC_EC_ERROR2);
-
-
+    // To guarantee the output stream buffer is big enough.
+    if (((outputBitstreamPtr->writtenBitsCount >> 3) + (*outputBufferIndex) > (*outputBufferSize)) && *outputBuffer) {
+        free(*outputBuffer);
+        *outputBuffer = (EB_BYTE)malloc((outputBitstreamPtr->writtenBitsCount >> 3) + (*outputBufferIndex));
+        if (*outputBuffer == EB_NULL) {
+            return_error = EB_ErrorInsufficientResources;
+            return return_error;
+        }
+    }
 
 	OutputBitstreamRBSPToPayload(
 		outputBitstreamPtr,
-		outputBuffer,
+		*outputBuffer,
 		outputBufferIndex,
 		outputBufferSize,
 		0,
@@ -9277,54 +9293,61 @@ EB_ERRORTYPE CopyRbspBitstreamToPayload(
 	return return_error;
 }
 
+static void BitstreamDctor(EB_PTR p)
+{
+    Bitstream_t *obj = (Bitstream_t*)p;
+    OutputBitstreamUnit_t* outputBitstreamPtr = (OutputBitstreamUnit_t*)(obj->outputBitstreamPtr);
+    EB_DELETE(outputBitstreamPtr);
+}
 
 EB_ERRORTYPE BitstreamCtor(
-	Bitstream_t **bitstreamDblPtr,
-	EB_U32 bufferSize)
+    Bitstream_t *bitstreamPtr,
+    EB_U32 bufferSize)
 {
-    EB_ERRORTYPE return_error = EB_ErrorNone;
-    EB_MALLOC(Bitstream_t*, *bitstreamDblPtr, sizeof(Bitstream_t), EB_N_PTR);
+    bitstreamPtr->dctor = BitstreamDctor;
+    OutputBitstreamUnit_t* outputBitstreamPtr;
 
-    EB_MALLOC(EB_PTR, (*bitstreamDblPtr)->outputBitstreamPtr, sizeof(OutputBitstreamUnit_t), EB_N_PTR);
+    EB_NEW(
+        outputBitstreamPtr,
+        OutputBitstreamUnitCtor,
+        bufferSize);
+    bitstreamPtr->outputBitstreamPtr = outputBitstreamPtr;
 
-    return_error = OutputBitstreamUnitCtor(
-		(OutputBitstreamUnit_t *)(*bitstreamDblPtr)->outputBitstreamPtr,
-		bufferSize);
-
-    return return_error;
+    return EB_ErrorNone;
 }
 
-
-
+static void EntropyCoderDctor(EB_PTR p)
+{
+    EntropyCoder_t *obj = (EntropyCoder_t *)p;
+    OutputBitstreamUnit_t *outputBitstreamPtr = ((CabacEncodeContext_t*)obj->cabacEncodeContextPtr)->bacEncContext.m_pcTComBitIf;
+    EB_DELETE(outputBitstreamPtr);
+    EB_FREE(obj->cabacEncodeContextPtr);
+}
 
 EB_ERRORTYPE EntropyCoderCtor(
-	EntropyCoder_t **entropyCoderDblPtr,
+	EntropyCoder_t *entropyCoderPtr,
 	EB_U32 bufferSize)
 {
-    EB_ERRORTYPE return_error = EB_ErrorNone;
-    EB_MALLOC(EntropyCoder_t*, *entropyCoderDblPtr, sizeof(EntropyCoder_t), EB_N_PTR);
+    entropyCoderPtr->dctor = EntropyCoderDctor;
+    OutputBitstreamUnit_t* outputBitstreamPtr;
 
-    EB_MALLOC(EB_PTR, (*entropyCoderDblPtr)->cabacEncodeContextPtr, sizeof(CabacEncodeContext_t), EB_N_PTR);
+    EB_CALLOC(entropyCoderPtr->cabacEncodeContextPtr, 1, sizeof(CabacEncodeContext_t));
 
-	EbHevcCabacCtor(
-		(CabacEncodeContext_t *)(*entropyCoderDblPtr)->cabacEncodeContextPtr);
+    EB_NEW(
+        outputBitstreamPtr,
+        OutputBitstreamUnitCtor,
+        bufferSize);
 
+    ((CabacEncodeContext_t*)entropyCoderPtr->cabacEncodeContextPtr)->bacEncContext.m_pcTComBitIf = outputBitstreamPtr;
 
-    return_error = OutputBitstreamUnitCtor(
-		&((((CabacEncodeContext_t*)(*entropyCoderDblPtr)->cabacEncodeContextPtr)->bacEncContext).m_pcTComBitIf),
-		bufferSize);
-
-    return return_error;
+    return EB_ErrorNone;
 }
-
-
-
 
 EB_PTR EntropyCoderGetBitstreamPtr(
 	EntropyCoder_t *entropyCoderPtr)
 {
 	CabacEncodeContext_t *cabacEncCtxPtr = (CabacEncodeContext_t*)entropyCoderPtr->cabacEncodeContextPtr;
-	EB_PTR bitstreamPtr = (EB_PTR)&(cabacEncCtxPtr->bacEncContext.m_pcTComBitIf);
+	EB_PTR bitstreamPtr = cabacEncCtxPtr->bacEncContext.m_pcTComBitIf;
 
 	return bitstreamPtr;
 }

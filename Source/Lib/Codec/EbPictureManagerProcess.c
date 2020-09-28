@@ -32,16 +32,11 @@
  * Picture Manager Context Constructor
  ************************************************/
 EB_ERRORTYPE PictureManagerContextCtor(
-    PictureManagerContext_t **contextDblPtr,
+    PictureManagerContext_t  *contextPtr,
     EbFifo_t                 *pictureInputFifoPtr,
     EbFifo_t                 *pictureManagerOutputFifoPtr,
     EbFifo_t                **pictureControlSetFifoPtrArray)
 {
-    PictureManagerContext_t *contextPtr;
-    EB_MALLOC(PictureManagerContext_t*, contextPtr, sizeof(PictureManagerContext_t), EB_N_PTR);
-
-    *contextDblPtr = contextPtr;
-
     contextPtr->pictureInputFifoPtr         = pictureInputFifoPtr;
     contextPtr->pictureManagerOutputFifoPtr   = pictureManagerOutputFifoPtr;
     contextPtr->pictureControlSetFifoPtrArray = pictureControlSetFifoPtrArray;
@@ -216,7 +211,8 @@ void* PictureManagerKernel(void *inputPtr)
             encodeContextPtr                = sequenceControlSetPtr->encodeContextPtr;
 
 #if DEADLOCK_DEBUG
-            SVT_LOG("POC %lld PM IN \n", pictureControlSetPtr->pictureNumber);
+            if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+                SVT_LOG("POC %lu PM IN \n", pictureControlSetPtr->pictureNumber);
 #endif
 		   queueEntryIndex = (EB_S32)(pictureControlSetPtr->pictureNumber - encodeContextPtr->pictureManagerReorderQueue[encodeContextPtr->pictureManagerReorderQueueHeadIndex]->pictureNumber);
 		   queueEntryIndex += encodeContextPtr->pictureManagerReorderQueueHeadIndex;
@@ -507,9 +503,7 @@ void* PictureManagerKernel(void *inputPtr)
 				   EbReleaseObject(pictureControlSetPtr->referencePictureWrapperPtr);
 				   pictureControlSetPtr->referencePictureWrapperPtr = (EbObjectWrapper_t*)EB_NULL;
 			   }
-#if DEADLOCK_DEBUG
-               SVT_LOG("POC %lld PM OUT \n", pictureControlSetPtr->pictureNumber);
-#endif
+
 			   // Release the Picture Manager Reorder Queue
 			   queueEntryPtr->parentPcsWrapperPtr = (EbObjectWrapper_t*)EB_NULL;
 			   queueEntryPtr->pictureNumber += PICTURE_MANAGER_REORDER_QUEUE_MAX_DEPTH;
@@ -765,17 +759,17 @@ void* PictureManagerKernel(void *inputPtr)
                     }
 
                     // Configure tiles for entropy
-                    for (int r = 0; r < entryPictureControlSetPtr->tileRowCount; r++) {
+                    for (EB_U16 r = 0; r < entryPictureControlSetPtr->tileRowCount; r++) {
                         EB_U16 tileHeightInLcu = entryPictureControlSetPtr->tileRowStartLcu[r + 1] - entryPictureControlSetPtr->tileRowStartLcu[r];
-                        for (int c = 0; c < entryPictureControlSetPtr->tileColumnCount; c++) {
-                            int tileIdx = r * entryPictureControlSetPtr->tileColumnCount + c;
+                        for (EB_U16 c = 0; c < entryPictureControlSetPtr->tileColumnCount; c++) {
+                            EB_U16 tileIdx = r * entryPictureControlSetPtr->tileColumnCount + c;
                             ChildPictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCodingCurrentRow = 0;
                             ChildPictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCodingCurrentAvailableRow = 0;
                             ChildPictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCodingRowCount = tileHeightInLcu;
                             ChildPictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCodingInProgress = EB_FALSE;
                             ChildPictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCodingPicDone = EB_FALSE;
 
-                            for(unsigned rowIndex=0; rowIndex < MAX_LCU_ROWS; ++rowIndex) {
+                            for(EB_U8 rowIndex=0; rowIndex < MAX_LCU_ROWS; ++rowIndex) {
                                 ChildPictureControlSetPtr->entropyCodingInfo[tileIdx]->entropyCodingRowArray[rowIndex] = EB_FALSE;
                             }
                         }
@@ -809,13 +803,6 @@ void* PictureManagerKernel(void *inputPtr)
                     else
                         ChildPictureControlSetPtr->difCuDeltaQpDepth = 3;
 
-                    // Reset the Reference Lists
-                    EB_MEMSET(ChildPictureControlSetPtr->refPicPtrArray, 0, 2 * sizeof(EbObjectWrapper_t*));
-
-                    EB_MEMSET(ChildPictureControlSetPtr->refPicQpArray, 0,  2 * sizeof(EB_U8));
-
-                    EB_MEMSET(ChildPictureControlSetPtr->refSliceTypeArray, 0,  2 * sizeof(EB_PICTURE));
-                   
                     // Configure List0
                     if ((entryPictureControlSetPtr->sliceType == EB_P_PICTURE) || (entryPictureControlSetPtr->sliceType == EB_B_PICTURE)) {
 
@@ -907,6 +894,11 @@ void* PictureManagerKernel(void *inputPtr)
 
                     // Post the Full Results Object
                     EbPostFullObject(outputWrapperPtr);
+#if DEADLOCK_DEBUG
+                    if ((ChildPictureControlSetPtr->pictureNumber >= MIN_POC) && (ChildPictureControlSetPtr->pictureNumber <= MAX_POC))
+                        SVT_LOG("POC %lu PM OUT \n", ChildPictureControlSetPtr->pictureNumber);
+#endif
+
 #if LATENCY_PROFILE
                     double latency = 0.0;
                     EB_U64 finishTimeSeconds = 0;

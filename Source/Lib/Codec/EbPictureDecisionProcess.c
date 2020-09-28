@@ -27,7 +27,12 @@
 #define POC_CIRCULAR_ADD(base, offset/*, bits*/)             (/*(((EB_S32) (base)) + ((EB_S32) (offset)) > ((EB_S32) (1 << (bits))))   ? ((base) + (offset) - (1 << (bits))) : \
                                                              (((EB_S32) (base)) + ((EB_S32) (offset)) < 0)                           ? ((base) + (offset) + (1 << (bits))) : \
                                                                                                                                        */((base) + (offset)))
+ // zhuchen PD window
+#if (0) //0
 #define FUTURE_WINDOW_WIDTH                 4
+#else
+#define FUTURE_WINDOW_WIDTH                 0
+#endif
 #define FLASH_TH                            5
 #define FADE_TH                             3
 #define SCENE_TH                            3000
@@ -37,52 +42,35 @@
 #define QUEUE_GET_PREVIOUS_SPOT(h)  ((h == 0) ? PICTURE_DECISION_REORDER_QUEUE_MAX_DEPTH - 1 : h - 1)
 #define QUEUE_GET_NEXT_SPOT(h,off)  (( (h+off) >= PICTURE_DECISION_REORDER_QUEUE_MAX_DEPTH) ? h+off - PICTURE_DECISION_REORDER_QUEUE_MAX_DEPTH  : h + off)
 
+
+static void PictureDecisionContextDctor(EB_PTR p)
+{
+    PictureDecisionContext_t* obj = (PictureDecisionContext_t*)p;
+
+    EB_FREE_2D(obj->ahdRunningAvg);
+    EB_FREE_2D(obj->ahdRunningAvgCr);
+    EB_FREE_2D(obj->ahdRunningAvgCb);
+}
+
 /************************************************
  * Picture Analysis Context Constructor
  ************************************************/
 EB_ERRORTYPE PictureDecisionContextCtor(
-    PictureDecisionContext_t **contextDblPtr,
+    PictureDecisionContext_t *contextPtr,
     EbFifo_t *pictureAnalysisResultsInputFifoPtr,
     EbFifo_t *pictureDecisionResultsOutputFifoPtr)
 {
-    PictureDecisionContext_t *contextPtr;
-    EB_U32 arrayIndex;
-    EB_U32 arrayRow , arrowColumn;
-    EB_MALLOC(PictureDecisionContext_t*, contextPtr, sizeof(PictureDecisionContext_t), EB_N_PTR);
-    *contextDblPtr = contextPtr;
+    contextPtr->dctor = PictureDecisionContextDctor;
 
     contextPtr->pictureAnalysisResultsInputFifoPtr  = pictureAnalysisResultsInputFifoPtr;
     contextPtr->pictureDecisionResultsOutputFifoPtr = pictureDecisionResultsOutputFifoPtr;
 
-	EB_MALLOC(EB_U32**, contextPtr->ahdRunningAvgCb, sizeof(EB_U32*) * MAX_NUMBER_OF_REGIONS_IN_WIDTH, EB_N_PTR);
-
-	EB_MALLOC(EB_U32**, contextPtr->ahdRunningAvgCr, sizeof(EB_U32*) * MAX_NUMBER_OF_REGIONS_IN_WIDTH, EB_N_PTR);
-
-	EB_MALLOC(EB_U32**, contextPtr->ahdRunningAvg, sizeof(EB_U32*) * MAX_NUMBER_OF_REGIONS_IN_WIDTH, EB_N_PTR);
-
-	for (arrayIndex = 0; arrayIndex < MAX_NUMBER_OF_REGIONS_IN_WIDTH; arrayIndex++)
-	{
-		EB_MALLOC(EB_U32*, contextPtr->ahdRunningAvgCb[arrayIndex], sizeof(EB_U32) * MAX_NUMBER_OF_REGIONS_IN_HEIGHT, EB_N_PTR);
-
-		EB_MALLOC(EB_U32*, contextPtr->ahdRunningAvgCr[arrayIndex], sizeof(EB_U32) * MAX_NUMBER_OF_REGIONS_IN_HEIGHT, EB_N_PTR);
-
-		EB_MALLOC(EB_U32*, contextPtr->ahdRunningAvg[arrayIndex], sizeof(EB_U32) * MAX_NUMBER_OF_REGIONS_IN_HEIGHT, EB_N_PTR);
-	}
-
-	for (arrayRow = 0; arrayRow < MAX_NUMBER_OF_REGIONS_IN_HEIGHT; arrayRow++)
-	{
-		for (arrowColumn = 0; arrowColumn < MAX_NUMBER_OF_REGIONS_IN_WIDTH; arrowColumn++) {
-			contextPtr->ahdRunningAvgCb[arrowColumn][arrayRow] = 0;
-			contextPtr->ahdRunningAvgCr[arrowColumn][arrayRow] = 0;
-			contextPtr->ahdRunningAvg[arrowColumn][arrayRow] = 0;
-		}
-	}
+    EB_CALLOC_2D(contextPtr->ahdRunningAvgCb, MAX_NUMBER_OF_REGIONS_IN_WIDTH, MAX_NUMBER_OF_REGIONS_IN_HEIGHT);
+    EB_CALLOC_2D(contextPtr->ahdRunningAvgCr, MAX_NUMBER_OF_REGIONS_IN_WIDTH, MAX_NUMBER_OF_REGIONS_IN_HEIGHT);
+    EB_CALLOC_2D(contextPtr->ahdRunningAvg, MAX_NUMBER_OF_REGIONS_IN_WIDTH, MAX_NUMBER_OF_REGIONS_IN_HEIGHT);
 
 
     contextPtr->resetRunningAvg = EB_TRUE;
-
-	contextPtr->isSceneChangeDetected = EB_FALSE;
-
 
     return EB_ErrorNone;
 }
@@ -613,7 +601,12 @@ void* PictureDecisionKernel(void *inputPtr)
 	EB_BOOL                          windowAvail,framePasseThru;
     EB_U32                           windowIndex;
     EB_U32                           entryIndex;
+// zhuchen
+#if (0)
     PictureParentControlSet_t        *ParentPcsWindow[FUTURE_WINDOW_WIDTH+2];
+#else
+    PictureParentControlSet_t        *ParentPcsWindow[1 + 2];
+#endif
 
     // Debug
     EB_U64                           loopCount = 0;
@@ -632,7 +625,8 @@ void* PictureDecisionKernel(void *inputPtr)
         encodeContextPtr        = (EncodeContext_t*)            sequenceControlSetPtr->encodeContextPtr;
 
 #if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld PD IN \n", pictureControlSetPtr->pictureNumber);
+        if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+            SVT_LOG("POC %lu PD IN \n", pictureControlSetPtr->pictureNumber);
 #endif
 
         loopCount ++;
@@ -692,6 +686,13 @@ void* PictureDecisionKernel(void *inputPtr)
                     }
                 }
             }
+
+// zhuchen
+#if(1)
+            //use current frame as a fake future frame, and do not detect flash
+            ParentPcsWindow[2] = (PictureParentControlSet_t*)encodeContextPtr->pictureDecisionReorderQueue[encodeContextPtr->pictureDecisionReorderQueueHeadIndex]->parentPcsWrapperPtr->objectPtr;
+#endif
+
             pictureControlSetPtr                        = (PictureParentControlSet_t*)  queueEntryPtr->parentPcsWrapperPtr->objectPtr;
 
             if(pictureControlSetPtr->idrFlag == EB_TRUE)
@@ -1171,7 +1172,8 @@ void* PictureDecisionKernel(void *inputPtr)
 
                         }
 
-						((EbPaReferenceObject_t*)pictureControlSetPtr->paReferencePictureWrapperPtr->objectPtr)->dependentPicturesCount = inputEntryPtr->dependentCount;
+                        // Its dependentPicturesCount should be accumulated when indeed there is any latter picture referencing it.
+                        ((EbPaReferenceObject_t *)pictureControlSetPtr->paReferencePictureWrapperPtr->objectPtr)->dependentPicturesCount = 0;
 
 						/* EB_U32 depCnt = ((EbPaReferenceObject_t*)pictureControlSetPtr->paReferencePictureWrapperPtr->objectPtr)->dependentPicturesCount;
 						if (pictureControlSetPtr->pictureNumber>0 && pictureControlSetPtr->sliceType==EB_I_PICTURE && depCnt!=8 )
@@ -1193,9 +1195,9 @@ void* PictureDecisionKernel(void *inputPtr)
                             EB_ENC_PD_ERROR5);
 
                         // Reset the PA Reference Lists
-						EB_MEMSET(pictureControlSetPtr->refPaPicPtrArray, 0, 2 * sizeof(EbObjectWrapper_t*));
+						EB_MEMSET(pictureControlSetPtr->refPaPicPtrArray, 0, MAX_NUM_OF_REF_PIC_LIST * sizeof(EbObjectWrapper_t *));
 
-						EB_MEMSET(pictureControlSetPtr->refPaPicPtrArray, 0, 2 * sizeof(EB_U32));
+						EB_MEMSET(pictureControlSetPtr->refPicPocArray, 0, MAX_NUM_OF_REF_PIC_LIST * sizeof(EB_U64));
 
                     }
 
@@ -1223,9 +1225,9 @@ void* PictureDecisionKernel(void *inputPtr)
                             EB_ENC_PD_ERROR7);
 
                         // Reset the PA Reference Lists
-						EB_MEMSET(pictureControlSetPtr->refPaPicPtrArray, 0, 2 * sizeof(EbObjectWrapper_t*));
+						EB_MEMSET(pictureControlSetPtr->refPaPicPtrArray, 0, MAX_NUM_OF_REF_PIC_LIST * sizeof(EbObjectWrapper_t *));
 
-						EB_MEMSET(pictureControlSetPtr->refPicPocArray, 0, 2 * sizeof(EB_U64));
+						EB_MEMSET(pictureControlSetPtr->refPicPocArray, 0, MAX_NUM_OF_REF_PIC_LIST * sizeof(EB_U64));
 
 
                         // Configure List0
@@ -1261,6 +1263,7 @@ void* PictureDecisionKernel(void *inputPtr)
                                     1);
 
                                 --paReferenceEntryPtr->dependentCount;
+                                ((EbPaReferenceObject_t *)paReferenceEntryPtr->pPcsPtr->paReferencePictureWrapperPtr->objectPtr)->dependentPicturesCount++;
                             }
                         }
 
@@ -1296,6 +1299,7 @@ void* PictureDecisionKernel(void *inputPtr)
                                     1);
 
                                 --paReferenceEntryPtr->dependentCount;
+                                ((EbPaReferenceObject_t*)paReferenceEntryPtr->pPcsPtr->paReferencePictureWrapperPtr->objectPtr)->dependentPicturesCount++;
                             }
                         }
 
@@ -1326,6 +1330,10 @@ void* PictureDecisionKernel(void *inputPtr)
                                 // Post the Full Results Object
                                 EbPostFullObject(outputResultsWrapperPtr);
                             }
+#if DEADLOCK_DEBUG
+                            if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
+                                SVT_LOG("POC %lu PD OUT \n", pictureControlSetPtr->pictureNumber);
+#endif
                         }
 
 						if (pictureIndex == contextPtr->miniGopEndIndex[miniGopIndex]) {
@@ -1359,10 +1367,9 @@ void* PictureDecisionKernel(void *inputPtr)
                 // Remove the entry
                 if((inputEntryPtr->dependentCount == 0) &&
                    (inputEntryPtr->inputObjectPtr)) {
-                    EbReleaseObject(inputEntryPtr->pPcsPtr->pPcsWrapperPtr);
-                       // Release the nominal liveCount value
-                       EbReleaseObject(inputEntryPtr->inputObjectPtr);
-                       inputEntryPtr->inputObjectPtr = (EbObjectWrapper_t*) EB_NULL;
+                    if (((EbPaReferenceObject_t *)inputEntryPtr->pPcsPtr->paReferencePictureWrapperPtr->objectPtr)->dependentPicturesCount == 0) {
+                        inputEntryPtr->inputObjectPtr = (EbObjectWrapper_t *)EB_NULL;
+                    }
                 }
 
                 // Increment the HeadIndex if the head is null
@@ -1390,9 +1397,6 @@ void* PictureDecisionKernel(void *inputPtr)
             if(windowAvail == EB_FALSE  && framePasseThru == EB_FALSE)
                 break;
         }
-#if DEADLOCK_DEBUG
-        SVT_LOG("POC %lld PD OUT \n", pictureControlSetPtr->pictureNumber);
-#endif
         // Release the Input Results
         EbReleaseObject(inputResultsWrapperPtr);
     }
