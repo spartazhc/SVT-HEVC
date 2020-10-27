@@ -615,7 +615,6 @@ void* ResourceCoordinationKernel(void *inputPtr)
                 pictureControlSetWrapperPtr,
                 1);
 
-#ifndef ENDLESS_STREAM
         // Get Empty Output Results Object
         // Note: record the PCS object into output of the Resource Coordination process for EOS frame(s).
         //       Because EbH265GetPacket() can get the encoded bit stream only if Packetization process has
@@ -652,22 +651,6 @@ void* ResourceCoordinationKernel(void *inputPtr)
         }
         prevPictureControlSetWrapperPtr = pictureControlSetWrapperPtr;
 #else
-        // stop condition just for test
-        if (pictureControlSetPtr->pictureNumber == 30)
-            ((PictureParentControlSet_t *)pictureControlSetWrapperPtr->objectPtr)->endOfSequenceFlag = EB_TRUE;
-        EbGetEmptyObject(
-                contextPtr->resourceCoordinationResultsOutputFifoPtr,
-                &outputWrapperPtr);
-        outputResultsPtr = (ResourceCoordinationResults_t *)outputWrapperPtr->objectPtr;
-        outputResultsPtr->pictureControlSetWrapperPtr = pictureControlSetWrapperPtr;
-        eb_add_time_entry(EB_RESOURCE, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
-                            ((PictureParentControlSet_t *)pictureControlSetWrapperPtr->objectPtr)->startTimeSeconds,
-                            ((PictureParentControlSet_t *)pictureControlSetWrapperPtr->objectPtr)->startTimeuSeconds);
-        // Post the finished Results Object
-        EbPostFullObject(outputWrapperPtr);
-#endif
-
-#else
         ((PictureParentControlSet_t*)pictureControlSetWrapperPtr->objectPtr)->endOfSequenceFlag = endOfSequenceFlag;
 
         EbGetEmptyObject(
@@ -675,6 +658,9 @@ void* ResourceCoordinationKernel(void *inputPtr)
             &outputWrapperPtr);
         outputResultsPtr = (ResourceCoordinationResults_t*)outputWrapperPtr->objectPtr;
         outputResultsPtr->pictureControlSetWrapperPtr = pictureControlSetWrapperPtr;
+        eb_add_time_entry(EB_RESOURCE, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
+                            ((PictureParentControlSet_t *)pictureControlSetWrapperPtr->objectPtr)->startTimeSeconds,
+                            ((PictureParentControlSet_t *)pictureControlSetWrapperPtr->objectPtr)->startTimeuSeconds);
 
         // Post the finished Results Object
         EbPostFullObject(outputWrapperPtr);
