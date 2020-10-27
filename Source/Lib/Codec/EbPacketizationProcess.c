@@ -980,8 +980,6 @@ void* PacketizationKernel(void *inputPtr)
             if ((queueEntryPtr->pictureNumber >= MIN_POC) && (queueEntryPtr->pictureNumber <= MAX_POC))
                 SVT_LOG("POC %lu PK OUT \n", queueEntryPtr->pictureNumber);
 #endif
-            eb_add_time_entry(EB_PACKET, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
-                            start_sTime, start_uTime);
             // Reset the Reorder Queue Entry
             queueEntryPtr->pictureNumber    += PACKETIZATION_REORDER_QUEUE_MAX_DEPTH;
             queueEntryPtr->outputStreamWrapperPtr = (EbObjectWrapper_t *)EB_NULL;
