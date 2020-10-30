@@ -560,10 +560,11 @@ void eb_print_time_usage(const char* profilePATH) {
 #ifdef DEBUG_TIMESTAMP
     EB_HANDLE m = get_time_mutex();
     EbBlockOnMutex(m);
-    FILE *fp = NULL; //*fp_raw = NULL;
+    FILE *fp = NULL;
+    FILE *fp_raw = NULL;
     fp = fopen(profilePATH, "w+");
-    // fp_raw = fopen("/tmp/profile_hevc_raw.csv", "w+");
-    // fprintf(fp_raw, "proc, inType, outType, picNum, segIdx, tileIdx, sTime, eTime, duration\n");
+    fp_raw = fopen("/tmp/profile_hevc_raw.csv", "w+");
+    fprintf(fp_raw, "proc, inType, outType, picNum, segIdx, tileIdx, sTime, eTime, duration\n");
     qsort(g_time_entry, TIME_ENTRY_SIZE, sizeof(TimeEntry), compare_time);
     int i = 0;
     double s_mtime, e_mtime, duration;
@@ -589,13 +590,13 @@ void eb_print_time_usage(const char* profilePATH) {
         fprintf(fp, "%s, inType=%d, outType=%d, picNum=%u, segIdx=%d, tileIdx=%d, sTime=%.2f, eTime=%.2f, duration=%.2f\n",
             process_name(g_time_entry[i].proc_type), (int)g_time_entry[i].in_type, (int)g_time_entry[i].out_type,
              g_time_entry[i].pic_num, g_time_entry[i].seg_idx, g_time_entry[i].tile_idx, s_mtime, e_mtime, duration);
-        // fprintf(fp_raw, "%s, %d, %d, %u, %d, %d, %.2f, %.2f, %.2f\n",
-        //     process_name(g_time_entry[i].proc_type), (int)g_time_entry[i].in_type, (int)g_time_entry[i].out_type,
-        //      g_time_entry[i].pic_num, g_time_entry[i].seg_idx, g_time_entry[i].tile_idx, s_mtime, e_mtime, duration);
+        fprintf(fp_raw, "%s, %d, %d, %u, %d, %d, %.2f, %.2f, %.2f\n",
+            process_name(g_time_entry[i].proc_type), (int)g_time_entry[i].in_type, (int)g_time_entry[i].out_type,
+             g_time_entry[i].pic_num, g_time_entry[i].seg_idx, g_time_entry[i].tile_idx, s_mtime, e_mtime, duration);
         ++i;
     }
     fclose(fp);
-    // fclose(fp_raw);
+    fclose(fp_raw);
     EbReleaseMutex(m);
 #endif
 }
