@@ -979,8 +979,10 @@ void* MotionEstimationKernel(void *inputPtr)
             if (segmentIndex == (EB_U32)(pictureControlSetPtr->meSegmentsTotalCount - 1))
                 SVT_LOG("POC %lu ME OUT \n", pictureControlSetPtr->pictureNumber);
 #endif
+#if LATENCY_PROFILE_ENTRY
         eb_add_time_entry(EB_ME, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, segmentIndex, -1,
                             start_sTime, start_uTime);
+#endif
 	}
 	return EB_NULL;
 }

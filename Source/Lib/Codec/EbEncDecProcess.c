@@ -1699,11 +1699,13 @@ static EB_BOOL AssignEncDecSegments(
             feedbackTaskPtr->tileGroupIndex = taskPtr->tileGroupIndex;
 
             EbPostFullObject(wrapperPtr);
-#ifdef TIMESTAMP_WITH_FEEDBACK
+#if TIMESTAMP_WITH_FEEDBACK
+#if LATENCY_PROFILE_ENTRY
             eb_add_time_entry(EB_ENCDEC, (EbTaskType)taskPtr->inputType, (EbTaskType)ENCDEC_TASKS_ENCDEC_INPUT,
                             ((PictureControlSet_t*)taskPtr->pictureControlSetWrapperPtr->objectPtr)->pictureNumber,
                             feedbackRowIndex, taskPtr->tileGroupIndex,
                             start_sTime, start_uTime);
+#endif
 #endif
         }
 
@@ -3095,9 +3097,11 @@ void* EncDecKernel(void *inputPtr)
                 // printf("Post tile %d, line [%d, %d) to entropy\n", lcuRowTileIdx, lcuRowIndexStart, lcuRowIndexStart + lcuRowIndexCount);
                 // Post EncDec Results
                 EbPostFullObject(encDecResultsWrapperPtr);
+#if LATENCY_PROFILE_ENTRY
                 eb_add_time_entry(EB_ENCDEC, (EbTaskType)encDecTasksPtr->inputType, EB_TASK0, pictureControlSetPtr->pictureNumber,
                                 encDecResultsPtr->completedLcuRowIndexStart, lcuRowTileIdx,
                                 start_sTime, start_uTime);
+#endif
             }
 
         }
@@ -3110,8 +3114,10 @@ void* EncDecKernel(void *inputPtr)
         //        contextPtr, encDecTasksPtr->tileGroupIndex,
         //        contextPtr->codedLcuCount,
         //        pictureControlSetPtr->encDecCodedLcuCount, lastLcuFlag);
+#if LATENCY_PROFILE_ENTRY
         eb_add_time_entry(EB_ENCDEC, EB_NOTASK, EB_NOTASK, pictureControlSetPtr->pictureNumber, pictureControlSetPtr->encDecCodedLcuCount, -1,
                             start_sTime, start_uTime);
+#endif
         EbReleaseMutex(pictureControlSetPtr->intraMutex);
 
         if (lastLcuFlag) {
@@ -3243,9 +3249,11 @@ void* EncDecKernel(void *inputPtr)
 
                 // Post Reference Picture
                 EbPostFullObject(pictureDemuxResultsWrapperPtr);
-#ifdef TIMESTAMP_WITH_FEEDBACK
+#if TIMESTAMP_WITH_FEEDBACK
+#if LATENCY_PROFILE_ENTRY
                 eb_add_time_entry(EB_ENCDEC, (EbTaskType)encDecTasksPtr->inputType, (EbTaskType)EB_PIC_REFERENCE, pictureControlSetPtr->pictureNumber, -1, -1,
                                 start_sTime, start_uTime);
+#endif
 #endif
 #if LATENCY_PROFILE
                     double latency = 0.0;

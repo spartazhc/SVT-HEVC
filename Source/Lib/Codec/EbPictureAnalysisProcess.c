@@ -4374,8 +4374,10 @@ void* PictureAnalysisKernel(void *inputPtr)
         if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
             SVT_LOG("POC %lu PA OUT \n", pictureControlSetPtr->pictureNumber);
 #endif
+#if LATENCY_PROFILE_ENTRY
 		eb_add_time_entry(EB_PA, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
 						start_sTime, start_uTime);
+#endif
 	}
 	return EB_NULL;
 }

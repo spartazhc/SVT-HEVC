@@ -2101,8 +2101,10 @@ void* ModeDecisionConfigurationKernel(void *inputPtr)
 
                 // Post the Full Results Object
                 EbPostFullObject(encDecTasksWrapperPtr);
+#if LATENCY_PROFILE_ENTRY
                 eb_add_time_entry(EB_MDC, EB_TASK0, (EbTaskType)ENCDEC_TASKS_MDC_INPUT, pictureControlSetPtr->pictureNumber, -1, tileGroupIdx,
                             start_sTime, start_uTime);
+#endif
             }
         }
 #if DEADLOCK_DEBUG

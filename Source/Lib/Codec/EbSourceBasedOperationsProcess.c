@@ -1709,8 +1709,10 @@ void* SourceBasedOperationsKernel(void *inputPtr)
             SVT_LOG("POC %lu SRC OUT \n", pictureControlSetPtr->pictureNumber);
 #endif
 
+#if LATENCY_PROFILE_ENTRY
         eb_add_time_entry(EB_SBO, EB_TASK0, (EbTaskType)EB_PIC_INPUT, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
     }
     return EB_NULL;
 }

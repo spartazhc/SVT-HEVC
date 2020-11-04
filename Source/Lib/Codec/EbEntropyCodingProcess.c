@@ -473,9 +473,11 @@ void* EntropyCodingKernel(void *inputPtr)
 
                     // Post EncDec Results
                     EbPostFullObject(rateControlTaskWrapperPtr);
-// #ifdef TIMESTAMP_WITH_FEEDBACK
+// #if TIMESTAMP_WITH_FEEDBACK
+#if LATENCY_PROFILE_ENTRY
                     eb_add_time_entry(EB_ENTROPY, EB_TASK0, (EbTaskType)RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, yLcuIndex, tileIdx,
                                     start_sTime, start_uTime);
+#endif
 // #endif
                 }
 
@@ -520,8 +522,10 @@ void* EntropyCodingKernel(void *inputPtr)
                             entropyCodingResultsPtr = (EntropyCodingResults_t*)entropyCodingResultsWrapperPtr->objectPtr;
                             entropyCodingResultsPtr->pictureControlSetWrapperPtr = encDecResultsPtr->pictureControlSetWrapperPtr;
 
+#if LATENCY_PROFILE_ENTRY
                             eb_add_time_entry(EB_ENTROPY, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
                                     start_sTime, start_uTime);
+#endif
                             //SVT_LOG("[%lld]: Entropy post result, POC %d\n", EbGetSysTimeMs(), pictureControlSetPtr->pictureNumber);
                             // Post EntropyCoding Results
                             EbPostFullObject(entropyCodingResultsWrapperPtr);

@@ -2606,8 +2606,10 @@ void* RateControlKernel(void *inputPtr)
             if ((pictureControlSetPtr->pictureNumber >= MIN_POC) && (pictureControlSetPtr->pictureNumber <= MAX_POC))
                 SVT_LOG("POC %lu RC OUT \n", pictureControlSetPtr->pictureNumber);
 #endif
+#if LATENCY_PROFILE_ENTRY
             eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
             // Release Rate Control Tasks
             EbReleaseObject(rateControlTasksWrapperPtr);
 
@@ -2809,9 +2811,11 @@ void* RateControlKernel(void *inputPtr)
 
             totalNumberOfFbFrames++;
 
-#ifdef TIMESTAMP_WITH_FEEDBACK
+#if TIMESTAMP_WITH_FEEDBACK
+#if LATENCY_PROFILE_ENTRY
             eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_NOTASK, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 #endif
 			// Release the SequenceControlSet
 			EbReleaseObject(parentPictureControlSetPtr->sequenceControlSetWrapperPtr);
@@ -2827,9 +2831,11 @@ void* RateControlKernel(void *inputPtr)
             break;
 
         case RC_ENTROPY_CODING_ROW_FEEDBACK_RESULT:
-#ifdef TIMESTAMP_WITH_FEEDBACK
+#if TIMESTAMP_WITH_FEEDBACK
+#if LATENCY_PROFILE_ENTRY
             eb_add_time_entry(EB_RC, (EbTaskType)taskType, EB_NOTASK, rateControlTasksPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 #endif
             // Extract bits-per-lcu-row
 

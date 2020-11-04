@@ -1340,8 +1340,10 @@ void* PictureDecisionKernel(void *inputPtr)
                                 SVT_LOG("POC %lu PD OUT \n", pictureControlSetPtr->pictureNumber);
 #endif
                             // PD: pic in -> seg out, end time = last seg out
+#if LATENCY_PROFILE_ENTRY
                             eb_add_time_entry(EB_PD, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, segmentIndex, -1,
                                                     start_sTime, start_uTime);
+#endif
                         }
 
 						if (pictureIndex == contextPtr->miniGopEndIndex[miniGopIndex]) {

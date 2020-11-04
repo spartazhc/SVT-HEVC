@@ -943,7 +943,7 @@ void* InitialRateControlKernel(void *inputPtr)
 					endOfSequenceFlag = EB_FALSE;
 				}
 				framesInSw = 0;
-#if 0 //Temporarily add 1 frame delay for system 
+#if 0 //Temporarily add 1 frame delay for system
 				while (moveSlideWondowFlag && !endOfSequenceFlag &&
 					queueEntryIndexTemp <= encodeContextPtr->initialRateControlReorderQueueHeadIndex + sequenceControlSetPtr->staticConfig.lookAheadDistance){
 #else
@@ -1098,8 +1098,10 @@ void* InitialRateControlKernel(void *inputPtr)
 #endif
 
 					// IRC: seg in -> pic out, start time = first seg in
+#if LATENCY_PROFILE_ENTRY
 					eb_add_time_entry(EB_IRC, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 #if LATENCY_PROFILE
         double latency = 0.0;
         EB_U64 finishTimeSeconds = 0;

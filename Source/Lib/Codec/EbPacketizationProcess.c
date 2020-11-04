@@ -790,17 +790,21 @@ void* PacketizationKernel(void *inputPtr)
 
         // Post Rate Control Taks
         EbPostFullObject(rateControlTasksWrapperPtr);
-#ifdef TIMESTAMP_WITH_FEEDBACK
+#if TIMESTAMP_WITH_FEEDBACK
+#if LATENCY_PROFILE_ENTRY
         eb_add_time_entry(EB_PACKET, EB_TASK0, (EbTaskType)RC_PACKETIZATION_FEEDBACK_RESULT, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 #endif
 
         if (sequenceControlSetPtr->staticConfig.rateControlMode) {
             // Post the Full Results Object
             EbPostFullObject(pictureManagerResultsWrapperPtr);
-#ifdef TIMESTAMP_WITH_FEEDBACK
+#if TIMESTAMP_WITH_FEEDBACK
+#if LATENCY_PROFILE_ENTRY
             eb_add_time_entry(EB_PACKET, EB_TASK0, (EbTaskType)EB_PIC_FEEDBACK, pictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 #endif
         }
         //Release the Parent PCS then the Child PCS
@@ -830,8 +834,10 @@ void* PacketizationKernel(void *inputPtr)
             EB_U32  totalBytes = 0;
             EbHevcFinishTime((uint64_t*)&finishTimeSeconds, (uint64_t*)&finishTimeuSeconds);
 
+#if LATENCY_PROFILE_ENTRY
             eb_add_time_entry(EB_PACKET, EB_TASK0, EB_TASK0, queueEntryPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
             EbHevcComputeOverallElapsedTimeMs(
                 queueEntryPtr->startTimeSeconds,
                 queueEntryPtr->startTimeuSeconds,

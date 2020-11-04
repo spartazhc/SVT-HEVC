@@ -11,7 +11,8 @@
 extern "C" {
 #endif
 
-// #define TIMESTAMP_WITH_FEEDBACK
+#define TIMESTAMP_WITH_FEEDBACK 0
+#define LATENCY_PROFILE_ENTRY 1
 
 //#define BENCHMARK 0
 #define LATENCY_PROFILE 0

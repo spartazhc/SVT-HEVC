@@ -561,9 +561,11 @@ void* PictureManagerKernel(void *inputPtr)
             //keep the release of SCS here because we still need the encodeContext strucutre here
             // Release the Reference's SequenceControlSet
             EbReleaseObject(inputPictureDemuxPtr->sequenceControlSetWrapperPtr);
-#ifdef TIMESTAMP_WITH_FEEDBACK
+#if TIMESTAMP_WITH_FEEDBACK
+#if LATENCY_PROFILE_ENTRY
             eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, EB_NOTASK, inputPictureDemuxPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 #endif
             break;
         case EB_PIC_FEEDBACK:
@@ -586,9 +588,11 @@ void* PictureManagerKernel(void *inputPtr)
             //keep the relase of SCS here because we still need the encodeContext strucutre here
             // Release the Reference's SequenceControlSet
             EbReleaseObject(inputPictureDemuxPtr->sequenceControlSetWrapperPtr);
-#ifdef TIMESTAMP_WITH_FEEDBACK
+#ifdef TIMESTAMP_WITH_FEEDBAC
+#if LATENCY_PROFILE_ENTRY
             eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, EB_NOTASK, inputPictureDemuxPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 #endif
             break;
         default:
@@ -907,8 +911,10 @@ void* PictureManagerKernel(void *inputPtr)
                         SVT_LOG("POC %lu PM OUT \n", ChildPictureControlSetPtr->pictureNumber);
 #endif
 
+#if LATENCY_PROFILE_ENTRY
                     eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, (EbTaskType)RC_PICTURE_MANAGER_RESULT, inputPictureDemuxPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
+#endif
 #if LATENCY_PROFILE
                     double latency = 0.0;
                     EB_U64 finishTimeSeconds = 0;

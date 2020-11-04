@@ -658,9 +658,11 @@ void* ResourceCoordinationKernel(void *inputPtr)
             &outputWrapperPtr);
         outputResultsPtr = (ResourceCoordinationResults_t*)outputWrapperPtr->objectPtr;
         outputResultsPtr->pictureControlSetWrapperPtr = pictureControlSetWrapperPtr;
+#if LATENCY_PROFILE_ENTRY
         eb_add_time_entry(EB_RESOURCE, EB_TASK0, EB_TASK0, pictureControlSetPtr->pictureNumber, -1, -1,
                             ((PictureParentControlSet_t *)pictureControlSetWrapperPtr->objectPtr)->startTimeSeconds,
                             ((PictureParentControlSet_t *)pictureControlSetWrapperPtr->objectPtr)->startTimeuSeconds);
+#endif
 
         // Post the finished Results Object
         EbPostFullObject(outputWrapperPtr);
