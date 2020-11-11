@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 import sys
+import os
+import subprocess
 
 processes=["RES", "PA", "PD", "ME", "IRC", "SRC", "PM", "RC",
             "MDC", "ENC", "ENT", "PAK"]
@@ -95,6 +97,17 @@ def main():
         print("usage: cmd + raw.csv + frame_count")
     raw_file = sys.argv[1]
     frames = int(sys.argv[2])
+
+    dir_name = os.path.basename(raw_file).split('.')[0] + "-ana"
+    if (os.path.isdir(dir_name)):
+        subprocess.call(f"rm -rf {dir_name}", shell=True)
+    os.mkdir(dir_name)
+    os.mkdir(os.path.join(dir_name, "frames"))
+    grep_frames = frames-1 if frames < 30 else 30
+
+    for poc in range(0, grep_frames):
+        subprocess.call(f"grep -P '[A-Z]+\, -?\d\, -?\d\, {poc}\,.*' {raw_file} > {dir_name}/frames/frame{poc:02d}.csv", shell=True)
+
     frame_list = []
     frame_cputime = 0.0
     frame_latency = []
@@ -121,8 +134,8 @@ def main():
     # do not use the last frame
     frames -= 1
 
-    fd_cpu = open("cputime.csv", "wt")
-    fd_lat = open("latency.csv", "wt")
+    fd_cpu = open(os.path.join(dir_name, "cputime.csv"), "wt")
+    fd_lat = open(os.path.join(dir_name, "latency.csv"), "wt")
     fd_cpu.write("POC,    CPU, RES,  PA,  PD,   ME, IRC, SRC,  PM,  RC,  MDC,  ENC,  ENT, PAK\n")
     for poc in range(0, frames):
         fd_cpu.write(f"{poc:3d}, {frame_list[poc].get_fcputime():6.1f},")
