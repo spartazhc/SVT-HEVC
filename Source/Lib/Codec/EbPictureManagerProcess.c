@@ -912,7 +912,7 @@ void* PictureManagerKernel(void *inputPtr)
 #endif
 
 #if LATENCY_PROFILE_ENTRY
-                    eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, (EbTaskType)RC_PICTURE_MANAGER_RESULT, inputPictureDemuxPtr->pictureNumber, -1, -1,
+                    eb_add_time_entry(EB_PM, (EbTaskType)inputPictureDemuxPtr->pictureType, (EbTaskType)RC_PICTURE_MANAGER_RESULT, ChildPictureControlSetPtr->pictureNumber, -1, -1,
                             start_sTime, start_uTime);
 #endif
 #if LATENCY_PROFILE
